@@ -19,12 +19,7 @@ const userSchema = new mongoose.Schema({
     validate: [validator.isEmail, "Please enter valid email"],
   },
 
-  password: {
-    type: String,
-    required: [true, "Please Enter User Password"],
-    minlength: [8, "password should be greater than 12 characters"],
-    select: false,
-  },
+  password: { type: String, required: true, select: false },
   // avatar: {
   //   public_id: {
   //     type: String,

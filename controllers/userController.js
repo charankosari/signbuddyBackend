@@ -8,7 +8,6 @@ const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
-// temp otp
 exports.sendOTP = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
@@ -19,29 +18,24 @@ exports.sendOTP = asyncHandler(async (req, res, next) => {
   if (existingUser) {
     return next(new errorHandler("Email already exists"));
   }
-  // Generate a 4-digit OTP
   const otp = crypto.randomInt(1000, 9999).toString();
-
-  // Store OTP in the TempOTP collection (overwrite if exists)
   await TempOTP.findOneAndUpdate(
     { email },
     { otp, createdAt: new Date() },
     { upsert: true, new: true }
   );
-
-  // Send OTP to email
-  // await sendMail(email, "Your OTP Code", `Your OTP is ${otp}`);
-
   res.status(200).json({ success: true, message: "OTP sent to email" });
 });
 
 exports.register = asyncHandler(async (req, res, next) => {
   const { email, otp, password } = req.body;
-
   if (!email || !otp || !password) {
     return next(new errorHandler("Email, OTP, and Password are required", 400));
   }
-
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return next(new errorHandler("Email already registered", 400));
+  }
   if (!passwordRegex.test(password)) {
     return next(
       new errorHandler(
@@ -50,32 +44,19 @@ exports.register = asyncHandler(async (req, res, next) => {
       )
     );
   }
-  // Check if the email exists in TempOTP
   const tempOTP = await TempOTP.findOne({ email });
   if (!tempOTP) {
     return next(new errorHandler("OTP expired or email not found", 400));
   }
-
-  // Validate OTP
   if (tempOTP.otp !== otp) {
     return next(new errorHandler("Invalid OTP", 400));
   }
-
-  // Check if the user already exists
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
-    return next(new errorHandler("Email already registered", 400));
-  }
-
-  // Encrypt the password
   const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Create new user
   const user = await User.create({ email, password: hashedPassword });
 
-  // Delete OTP from TempOTP after successful verification
-  await TempOTP.deleteOne({ email });
+  console.log("Hash Test:", isMatch);
 
+  await TempOTP.deleteOne({ email });
   res.status(201);
   sendJwt(user, 200, "Registration successful", res);
 });
@@ -83,22 +64,25 @@ exports.register = asyncHandler(async (req, res, next) => {
 //user login
 exports.login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
-
-  if (email == "" || password == "") {
-    return next(new errorHandler("Enter Email and Password", 403));
+  if (!email || !password) {
+    return next(new errorHandler("Email and Password are required", 400));
   }
   const user = await User.findOne({ email }).select("+password");
   if (!user) {
-    return next(new errorHandler("Invalid Email or Password", 403));
+    return next(new errorHandler("Invalid Email or Password", 401));
   }
-  //conparing password
-  const passwordMatch = await user.comparePassword(password);
+  console.log(user);
+  const isMatch = await bcrypt.compare(
+    "Charan@1729",
+    "$2b$10$LKzDMa7e/mJiOMVyRiszRe6MTfQAoyjH5eO9aHbbHb4S7OBQcPE5G"
+  );
+  // const isMatch = await bcrypt.compare(password, user.password);
+  console.log(isMatch);
 
-  if (!passwordMatch) {
-    return next(new errorHandler("Invalid Email or Password", 403));
+  if (!isMatch) {
+    return next(new errorHandler("Invalid Email or Password", 401));
   }
-  //sending response
-  sendJwt(user, 200, "login successfully", res);
+  sendJwt(user, 200, "Login successful", res);
 });
 
 // forgot password
@@ -110,8 +94,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   }
 
   const token = user.resetToken();
-  // const resetUrl=`http://localhost:5080/api/v1/resetpassword/${token}`
-  const resetUrl = `http://127.0.0.1:5173/resetpassword/${token}`;
+  const resetUrl = `http://localhost:5173/resetpassword/${token}`;
   const message = `your reset url is ${resetUrl} leave it if you didnt requested for it`;
   await user.save({ validateBeforeSave: false });
   try {
