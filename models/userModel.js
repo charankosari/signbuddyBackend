@@ -8,7 +8,7 @@ const { type } = require("os");
 const userSchema = new mongoose.Schema({
   userName: {
     type: String,
-    required: [true, "Please Enter  Username"],
+    required: [false, "Please Enter  Username"],
     maxlength: [40, "username should not exceed morethan 40 characters"],
     minlength: [4, "username should not be lessthan 4 characters"],
   },
@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, "Please Enter User Password"],
-    minlength: [8, "password should be greaterthan 8 characters"],
+    minlength: [8, "password should be greater than 12 characters"],
     select: false,
   },
   // avatar: {

@@ -5,6 +5,8 @@ const sendJwt = require("../utils/jwttokenSend");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
+const bcrypt = require("bcrypt");
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
 // temp otp
 exports.sendOTP = asyncHandler(async (req, res, next) => {
@@ -32,18 +34,52 @@ exports.sendOTP = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ success: true, message: "OTP sent to email" });
 });
-// user register
+
 exports.register = asyncHandler(async (req, res, next) => {
-  const { email } = req.body;
-  if (email === "") {
-    return next(new errorHandler("Enter Email and Password", 403));
+  const { email, otp, password } = req.body;
+
+  if (!email || !otp || !password) {
+    return next(new errorHandler("Email, OTP, and Password are required", 400));
   }
+
+  if (!passwordRegex.test(password)) {
+    return next(
+      new errorHandler(
+        "Password must include at least one letter, one number, and one special character",
+        400
+      )
+    );
+  }
+  // Check if the email exists in TempOTP
+  const tempOTP = await TempOTP.findOne({ email });
+  if (!tempOTP) {
+    return next(new errorHandler("OTP expired or email not found", 400));
+  }
+
+  // Validate OTP
+  if (tempOTP.otp !== otp) {
+    return next(new errorHandler("Invalid OTP", 400));
+  }
+
+  // Check if the user already exists
   const existingUser = await User.findOne({ email });
   if (existingUser) {
-    return next(new errorHandler("Email already exists"));
+    return next(new errorHandler("Email already registered", 400));
   }
-  const user = User.create(user);
+
+  // Encrypt the password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // Create new user
+  const user = await User.create({ email, password: hashedPassword });
+
+  // Delete OTP from TempOTP after successful verification
+  await TempOTP.deleteOne({ email });
+
+  res.status(201);
+  sendJwt(user, 200, "Registration successful", res);
 });
+
 //user login
 exports.login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
