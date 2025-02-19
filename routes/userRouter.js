@@ -6,6 +6,7 @@ const {
   sendOTP,
   forgotPassword,
   userDetails,
+  updateDetails,
   register,
 } = require("../controllers/userController");
 const { isAuthorized, roleAuthorize } = require("../middleware/auth");
@@ -16,5 +17,6 @@ router.route("/login").post(login);
 router.route("/forgotPassword").post(forgotPassword);
 router.route("/resetpassword/:id").post(resetPassword);
 router.route("/me").get(isAuthorized, userDetails);
+router.route("/addDetails").post(isAuthorized, updateDetails);
 
 module.exports = router;

@@ -19,11 +19,13 @@ exports.sendOTP = asyncHandler(async (req, res, next) => {
     return next(new errorHandler("Email already exists"));
   }
   const otp = crypto.randomInt(1000, 9999).toString();
+  const hashedOtp = await bcrypt.hash(otp, 10);
   await TempOTP.findOneAndUpdate(
     { email },
-    { otp, createdAt: new Date() },
+    { otp: hashedOtp, createdAt: new Date() },
     { upsert: true, new: true }
   );
+  console.log(otp);
   res.status(200).json({ success: true, message: "OTP sent to email" });
 });
 
@@ -48,7 +50,8 @@ exports.register = asyncHandler(async (req, res, next) => {
   if (!tempOTP) {
     return next(new errorHandler("OTP expired or email not found", 400));
   }
-  if (tempOTP.otp !== otp) {
+  const matchOtp = await bcrypt.compare(String(otp), tempOTP.otp);
+  if (!matchOtp) {
     return next(new errorHandler("Invalid OTP", 400));
   }
   const user = await User.create({ email, password });
@@ -139,5 +142,17 @@ exports.userDetails = asyncHandler(async (req, res, next) => {
   if (!user) {
     return next(new errorHandler("Login to access this resource", 400));
   }
+  res.status(200).send({ success: true, user });
+});
+// update details
+exports.updateDetails = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user.id);
+  const { avatar, userName } = req.body;
+  if (!user) {
+    return next(new errorHandler("Login to access this resource", 400));
+  }
+  user.avatar = avatar;
+  user.userName = userName;
+  await user.save();
   res.status(200).send({ success: true, user });
 });

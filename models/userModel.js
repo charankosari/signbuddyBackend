@@ -20,14 +20,10 @@ const userSchema = new mongoose.Schema({
   },
 
   password: { type: String, required: true, select: false },
-  // avatar: {
-  //   public_id: {
-  //     type: String,
-  //   },
-  //   url: {
-  //     type: String,
-  //   },
-  // },
+  avatar: {
+    type: String,
+    required: false,
+  },
 
   role: {
     type: String,
