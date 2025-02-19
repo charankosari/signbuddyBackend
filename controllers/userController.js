@@ -96,15 +96,15 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   const message = `your reset url is ${resetUrl} leave it if you didnt requested for it`;
   await user.save({ validateBeforeSave: false });
   try {
-    const mailMessage = await sendEmail({
-      email: user.email,
-      subject: "password reset mail",
-      message: message,
-    });
+    // const mailMessage = await sendEmail({
+    //   email: user.email,
+    //   subject: "password reset mail",
+    //   message: message,
+    // });
     res.status(201).json({
       success: true,
       message: "mail sent successfully",
-      mailMessage: mailMessage,
+      mailMessage: message,
     });
   } catch (e) {
     user.resetPasswordExpire = undefined;
@@ -125,9 +125,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
   if (!user) {
     return next(new errorHandler("Reset password is invalid or expired", 400));
   }
-  if (req.body.password != req.body.confirmPassword) {
-    return next(new errorHandler("Password dosnt match", 401));
-  }
+
   user.password = req.body.password;
   user.resetPasswordExpire = undefined;
   user.resetPasswordToken = undefined;
