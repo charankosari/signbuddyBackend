@@ -10,6 +10,7 @@ const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 const multer = require("multer");
 const { putObject, deleteObject, getObject } = require("../utils/s3objects");
 const storage = multer.memoryStorage();
+const { v4: uuidv4 } = require("uuid");
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -23,7 +24,18 @@ const upload = multer({
       cb(new Error("Only .docx files are allowed"));
     }
   },
-}).single("file"); // 'file' should match frontend form input name
+}).single("file");
+const uploadDocs = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "application/pdf") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .docx files are allowed"));
+    }
+  },
+}).single("file");
 exports.sendOTP = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
@@ -229,3 +241,63 @@ exports.deleteTemplate = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+exports.sendAgreement = asyncHandler(async (req, res, next) => {
+  uploadDocs(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized user" });
+      }
+
+      const { emails, names } = req.body;
+      if (!emails || !names || !req.file) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Extract file details
+      const fileBuffer = req.file.buffer;
+      const fileName = req.file.originalname;
+      const fileType = req.file.mimetype;
+      const fileKey = `agreements/${uuidv4()}-${fileName}`;
+
+      // Upload document to S3
+      const docUpload = await putObject(fileBuffer, fileKey, fileType);
+      if (docUpload.status !== 200) {
+        return res.status(500).json({ error: "Failed to upload document" });
+      }
+
+      // Document URL & Sign-in link
+      const docUrl = docUpload.url;
+      const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
+        docUrl
+      )}`;
+
+      // Email subject & body
+      const subject = "Agreement Document for Signing";
+      const emailBody = (name) => `
+        <h2>Hello ${name},</h2>
+        <p>You have received an agreement document for signing.</p>
+        <p><a href="${docUrl}" target="_blank">Click here to view the document</a></p>
+        <p><a href="${redirectUrl}" style="padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">Sign Now</a></p>
+        <p>Best regards,<br/>SignBuddy Team</p>
+      `;
+
+      // Send emails to all recipients
+      emails.forEach((email, index) => {
+        sendEmail(email, subject, emailBody(names[index] || "User"));
+      });
+
+      res.status(200).json({
+        message: "Agreement sent successfully",
+        documentUrl: docUrl,
+      });
+    } catch (error) {
+      console.error("Error sending agreement:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+});
