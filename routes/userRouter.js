@@ -8,6 +8,8 @@ const {
   userDetails,
   updateDetails,
   register,
+  addTemplate,
+  deleteTemplate,
 } = require("../controllers/userController");
 const { isAuthorized, roleAuthorize } = require("../middleware/auth");
 
@@ -18,6 +20,6 @@ router.route("/forgotPassword").post(forgotPassword);
 router.route("/resetpassword/:id").post(resetPassword);
 router.route("/me").get(isAuthorized, userDetails);
 router.route("/addDetails").post(isAuthorized, updateDetails);
-// router.route("/sendEmail").post(isAuthorized, sendAEmail);
-
+router.route("/addtemplate").post(isAuthorized, addTemplate);
+router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
 module.exports = router;

@@ -6,9 +6,24 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
-const { Subject } = require("@mui/icons-material");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-
+const multer = require("multer");
+const { putObject, deleteObject, getObject } = require("../utils/s3objects");
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .docx files are allowed"));
+    }
+  },
+}).single("file"); // 'file' should match frontend form input name
 exports.sendOTP = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
@@ -160,3 +175,57 @@ exports.updateDetails = asyncHandler(async (req, res, next) => {
   await user.save();
   res.status(200).send({ success: true, user });
 });
+
+exports.addTemplate = (req, res) => {
+  upload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    try {
+      const fileName = `templates/${Date.now()}-${req.file.originalname}`;
+      const result = await putObject(
+        req.file.buffer,
+        fileName,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+
+      if (result.status !== 200) {
+        return res.status(500).json({ error: "Failed to upload file" });
+      }
+
+      res.status(201).json({
+        message: "File uploaded successfully",
+        fileUrl: result.url,
+        key: result.key,
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+};
+exports.deleteTemplate = async (req, res) => {
+  try {
+    const { key } = req.body;
+
+    if (!key) {
+      return res.status(400).json({ error: "File key is required" });
+    }
+
+    const result = await deleteObject(key);
+
+    if (result.status !== 204) {
+      return res.status(500).json({ error: "Failed to delete file" });
+    }
+
+    res.status(200).json({ message: "File deleted successfully" });
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
