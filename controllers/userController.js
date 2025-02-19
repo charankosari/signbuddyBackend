@@ -51,10 +51,7 @@ exports.register = asyncHandler(async (req, res, next) => {
   if (tempOTP.otp !== otp) {
     return next(new errorHandler("Invalid OTP", 400));
   }
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const user = await User.create({ email, password: hashedPassword });
-
-  console.log("Hash Test:", isMatch);
+  const user = await User.create({ email, password });
 
   await TempOTP.deleteOne({ email });
   res.status(201);
@@ -64,24 +61,25 @@ exports.register = asyncHandler(async (req, res, next) => {
 //user login
 exports.login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return next(new errorHandler("Email and Password are required", 400));
-  }
+
+  // Ensure user exists and fetch password
   const user = await User.findOne({ email }).select("+password");
   if (!user) {
-    return next(new errorHandler("Invalid Email or Password", 401));
+    return res.status(400).json({ message: "User not found" });
   }
-  console.log(user);
-  const isMatch = await bcrypt.compare(
-    "Charan@1729",
-    "$2b$10$LKzDMa7e/mJiOMVyRiszRe6MTfQAoyjH5eO9aHbbHb4S7OBQcPE5G"
-  );
-  // const isMatch = await bcrypt.compare(password, user.password);
-  console.log(isMatch);
+
+  // Debugging Step: Print Passwords
+  console.log("Entered Password:", password);
+  console.log("Stored Hashed Password:", user.password);
+
+  // Compare password using bcrypt
+  const isMatch = await bcrypt.compare(password, user.password);
+  console.log("Password Match Result:", isMatch);
 
   if (!isMatch) {
-    return next(new errorHandler("Invalid Email or Password", 401));
+    return res.status(400).json({ message: "Invalid credentials" });
   }
+
   sendJwt(user, 200, "Login successful", res);
 });
 
