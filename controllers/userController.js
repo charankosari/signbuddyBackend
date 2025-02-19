@@ -253,25 +253,26 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
         return res.status(401).json({ error: "Unauthorized user" });
       }
 
-      const { emails, names } = req.body;
-      if (!emails || !names || !req.file) {
+      const emails = JSON.parse(req.body.emails);
+      const names = JSON.parse(req.body.names);
+      if (!emails || !names) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
       // Extract file details
-      const fileBuffer = req.file.buffer;
-      const fileName = req.file.originalname;
-      const fileType = req.file.mimetype;
-      const fileKey = `agreements/${uuidv4()}-${fileName}`;
+      // const fileBuffer = req.file.buffer;
+      // const fileName = req.file.originalname;
+      // const fileType = req.file.mimetype;
+      // const fileKey = `agreements/${uuidv4()}-${fileName}`;
 
-      // Upload document to S3
-      const docUpload = await putObject(fileBuffer, fileKey, fileType);
-      if (docUpload.status !== 200) {
-        return res.status(500).json({ error: "Failed to upload document" });
-      }
+      // // Upload document to S3
+      // const docUpload = await putObject(fileBuffer, fileKey, fileType);
+      // if (docUpload.status !== 200) {
+      //   return res.status(500).json({ error: "Failed to upload document" });
+      // }
 
       // Document URL & Sign-in link
-      const docUrl = docUpload.url;
+      const docUrl = "http:/agsag/asg";
       const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
         docUrl
       )}`;
@@ -283,14 +284,18 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
         <p>You have received an agreement document for signing.</p>
         <p><a href="${docUrl}" target="_blank">Click here to view the document</a></p>
         <p><a href="${redirectUrl}" style="padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">Sign Now</a></p>
+        <iframe src="${docUrl}/#page=1" width="100%" height="500px"></iframe>
+
         <p>Best regards,<br/>SignBuddy Team</p>
       `;
-
-      // Send emails to all recipients
+      // const emailArray = Object.values(emails);
+      // const nameArray = Object.values(names);
       emails.forEach((email, index) => {
-        sendEmail(email, subject, emailBody(names[index] || "User"));
+        console.log("Emails:", emails); // Array of emails
+        console.log("Names:", names);
+        console.log(`Email: ${email}, Name: ${names[index]}`);
+        // Send agreement logic here
       });
-
       res.status(200).json({
         message: "Agreement sent successfully",
         documentUrl: docUrl,

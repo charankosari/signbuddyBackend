@@ -10,6 +10,7 @@ const {
   register,
   addTemplate,
   deleteTemplate,
+  sendAgreement,
 } = require("../controllers/userController");
 const { isAuthorized, roleAuthorize } = require("../middleware/auth");
 
@@ -22,4 +23,6 @@ router.route("/me").get(isAuthorized, userDetails);
 router.route("/addDetails").post(isAuthorized, updateDetails);
 router.route("/addtemplate").post(isAuthorized, addTemplate);
 router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
+router.route("/sendagreement").post(isAuthorized, sendAgreement);
+
 module.exports = router;
