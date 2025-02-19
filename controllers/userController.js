@@ -6,6 +6,7 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
+const { Subject } = require("@mui/icons-material");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
 exports.sendOTP = asyncHandler(async (req, res, next) => {
@@ -25,6 +26,9 @@ exports.sendOTP = asyncHandler(async (req, res, next) => {
     { otp: hashedOtp, createdAt: new Date() },
     { upsert: true, new: true }
   );
+  const subject = "Your OTP Code";
+  const body = `<h1>Your OTP is: ${otp}</h1><p>Use this OTP to verify your account.</p>`;
+  sendEmail(email, subject, body);
   console.log(otp);
   res.status(200).json({ success: true, message: "OTP sent to email" });
 });

@@ -18,5 +18,6 @@ router.route("/forgotPassword").post(forgotPassword);
 router.route("/resetpassword/:id").post(resetPassword);
 router.route("/me").get(isAuthorized, userDetails);
 router.route("/addDetails").post(isAuthorized, updateDetails);
+// router.route("/sendEmail").post(isAuthorized, sendAEmail);
 
 module.exports = router;
