@@ -476,3 +476,67 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
     }
   });
 });
+
+exports.agreeDocument = asyncHandler(async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized user" });
+    }
+
+    const senderEmail = req.headers.senderemail;
+    const documentKey = req.headers.documentkey;
+
+    console.log(senderEmail, documentKey);
+    console.log(req.file);
+
+    if (!senderEmail || !documentKey) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const sender = await User.findOne({ email: senderEmail });
+    if (!sender) {
+      return res.status(404).json({ error: "Sender not found" });
+    }
+    const document = sender.documentsSent.find(
+      (doc) => doc.documentKey === documentKey
+    );
+    if (!document) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+    const recipient = document.recipients.find(
+      (rec) => rec.email === user.email
+    );
+    if (!recipient) {
+      return res.status(404).json({ error: "Recipient not found in document" });
+    }
+    if (recipient.status === "signed") {
+      return res.status(400).json({ error: "Document already signed" });
+    }
+    const uniqueId = uuidv4();
+    const originalname = req.file.originalname.trimStart();
+    const fileKey = `signedagreements/${uniqueId}-${originalname}`;
+    const fileBuffer = req.file.buffer;
+    const docUpload = await putObject(fileBuffer, fileKey, req.file.mimetype);
+    if (docUpload.status !== 200) {
+      return res
+        .status(500)
+        .json({ error: "Failed to upload signed document" });
+    }
+    const signedUrl = docUpload.url;
+    recipient.status = "signed";
+    recipient.signedDocument = signedUrl;
+    await sender.save();
+    const subject = "Agreement Signed Notification";
+    const senderBody = `Hello,\n\nYour document (${documentKey}) has been signed by ${user.email}.\n\nYou can view the signed document here: ${signedUrl}\n\nRegards,\nSignBuddy Team`;
+    const signerBody = `Hello ${user.name},\n\nYou have successfully signed the document (${documentKey}).\n\nYou can download the signed document here: ${signedUrl}\n\nThank you for using SignBuddy!`;
+    sendEmail(senderEmail, subject, senderBody);
+    sendEmail(user.email, subject, signerBody);
+    return res.status(200).json({
+      message: "Document signed successfully",
+      signedDocumentUrl: signedUrl,
+    });
+  } catch (error) {
+    console.error("Error signing document:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});

@@ -11,7 +11,12 @@ const {
   addTemplate,
   deleteTemplate,
   sendAgreement,
+  agreeDocument,
 } = require("../controllers/userController");
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
 const { isAuthorized, roleAuthorize } = require("../middleware/auth");
 
 router.route("/verifyemail").post(sendOTP);
@@ -24,5 +29,8 @@ router.route("/addDetails").post(isAuthorized, updateDetails);
 router.route("/addtemplate").post(isAuthorized, addTemplate);
 router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
 router.route("/sendagreement").post(isAuthorized, sendAgreement);
+router
+  .route("/agreedocument")
+  .post(isAuthorized, agreeDocument, upload.single("file"));
 
 module.exports = router;

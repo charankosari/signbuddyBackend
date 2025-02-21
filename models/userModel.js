@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
   agreements: {
-    type: [String], // Store only an array of document keys
+    type: [String],
     default: [],
   },
   documentsSent: {
