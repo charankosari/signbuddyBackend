@@ -5,6 +5,7 @@ const {
   PutObjectCommand,
 } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
+const asyncHandler = require("../middleware/asynchandler");
 config({ path: "config/config.env" });
 // connection
 exports.s3Client = new S3Client({
@@ -97,5 +98,36 @@ exports.putObject = async (
   } catch (err) {
     console.error("Error uploading object:", err);
     return { status: 500, error: err.message };
+  }
+};
+
+exports.getImagesFromFolder = async (folderName) => {
+  try {
+    if (!folderName) {
+      return { error: "Folder name is required" };
+    }
+
+    const params = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Prefix: `images/${folderName}/`,
+    };
+
+    const command = new ListObjectsV2Command(params);
+    const data = await s3Client.send(command);
+
+    if (!data.Contents || data.Contents.length === 0) {
+      return { message: "No images found in this folder" };
+    }
+
+    // Generate URLs
+    const imageUrls = data.Contents.map((file) => ({
+      key: file.Key,
+      url: `https://${params.Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${file.Key}`,
+    }));
+
+    return imageUrls;
+  } catch (error) {
+    console.error("Error fetching images:", error);
+    return { error: "Failed to fetch images" };
   }
 };

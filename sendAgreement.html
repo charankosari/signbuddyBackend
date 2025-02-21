@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <title>Email Template</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background-color: #ffffff;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #121111;
+        color: #ffffff;
+      }
+
+      .header {
+        background-color: #121111;
+        color: #ffffff;
+        text-align: left;
+      }
+
+      .content {
+        padding: 30px;
+        margin: 30px;
+        background-color: #000000;
+        border: 1px solid #333333;
+        color: #ffffff;
+      }
+
+      .footer {
+        background-color: #121111;
+        text-align: left;
+        color: #6d6b6b;
+        font-size: 12px;
+      }
+
+      .footer a {
+        color: #8a8a8a;
+      }
+
+      .button {
+        display: inline-block;
+        padding: 12px 30px;
+        background-color: #000000;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 4px;
+        margin: 20px 0;
+      }
+
+      .divider {
+        border-top: 1px solid #e0e0e0;
+        margin: 20px 0;
+      }
+
+      .logo {
+        font-size: 28px;
+        font-weight: 300;
+        color: #ffffff;
+        text-decoration: none;
+        margin-bottom: 5px;
+        display: block;
+        letter-spacing: 1px;
+      }
+
+      .tagline {
+        font-size: 14px;
+        color: #cccccc;
+        margin-bottom: 20px;
+        display: block;
+      }
+
+      .content p {
+        font-size: 11px;
+        line-height: 1.5;
+        color: #f0f0f0;
+        margin-bottom: 8px;
+      }
+
+      .doc-image {
+        width: 100%;
+        max-width: 300px;
+        height: 400px;
+        object-fit: cover;
+        margin: 25px auto;
+        display: block;
+        border: 1px solid #333;
+        border-radius: 4px;
+      }
+
+      .white-button {
+        display: inline-block;
+        padding: 12px 30px;
+        background-color: #ffffff;
+        color: #000000;
+        text-decoration: none;
+        border-radius: 4px;
+        margin: 20px auto;
+        display: block;
+        width: fit-content;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .profile-section {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 20px;
+      }
+
+      .profile-pic {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        margin-right: 12px;
+      }
+
+      .user-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 30px;
+      }
+
+      .user-info h2 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      .user-info p {
+        margin: 0;
+        font-size: 11px;
+        color: #cccccc;
+        line-height: 1.2;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="#" class="logo">SignBuddy</a>
+        <span class="tagline">Bridging Communication Gaps</span>
+      </div>
+      <div class="content">
+        <div class="profile-section">
+          <img
+            src="[PROFILE_IMAGE_URL]"
+            alt="Profile Picture"
+            class="profile-pic"
+          />
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              height: 30px;
+            "
+          >
+            <h2
+              style="
+                margin: 0;
+                font-size: 13px;
+                font-weight: 600;
+                line-height: 1.2;
+                color: #cccccc;
+              "
+            >
+              John Doe
+            </h2>
+            <p
+              style="
+                margin: 0;
+                font-size: 11px;
+                color: #cccccc;
+                line-height: 1.2;
+              "
+            >
+              john.doe@example.com
+            </p>
+          </div>
+        </div>
+
+        <p>Dear John,</p>
+        <p>
+          A document has been shared with you for your electronic signature
+          through SignBuddy's secure digital signing platform.
+        </p>
+        <p>
+          This document requires your attention and electronic signature to
+          proceed. Our system ensures a secure, legally-binding signature
+          process that complies with international e-signature regulations.
+        </p>
+        <p>To complete this process:</p>
+        <p>
+          1. Review the document preview below<br />
+          2. Click the "Sign Document" button to access the full document<br />
+          3. Follow the guided signing process<br />
+          4. Receive your signed copy via email
+        </p>
+        <p>
+          For security reasons, this signing link will expire in 72 hours. If
+          you have any questions or need assistance, please contact our support
+          team.
+        </p>
+
+        <img id="pdf-image" alt="PDF Preview" class="doc-image" />
+        <canvas id="hidden-canvas" style="display: none"></canvas>
+        <a href="#" class="white-button">Sign Document</a>
+      </div>
+      <div class="footer">
+        <p style="font-size: 11px; line-height: 1.6; margin-bottom: 20px">
+          SignBuddy is a cutting-edge electronic signature platform that
+          combines security, simplicity, and legal compliance. Our mission is to
+          streamline document signing processes while ensuring the highest
+          standards of data protection and user experience. With SignBuddy, your
+          signatures are not just marks on a page - they're secure, legally
+          binding commitments for the digital age.
+        </p>
+        <hr
+          style="border: none; border-top: 1px solid #333333; margin: 15px 0"
+        />
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <p style="margin: 0; font-size: 10px">
+            © 2025 SignBuddy. All rights reserved.
+          </p>
+          <p style="margin: 0; font-size: 10px">
+            <a href="#" style="margin-left: 15px">Privacy Policy</a>
+            <a href="#" style="margin-left: 15px">Terms & Conditions</a>
+          </p>
+        </div>
+        <div style="margin-top: 15px">
+          <a href="https://www.linkedin.com/" style="display: inline-block">
+            <svg
+              width="24"
+              height="24"
+              fill="#FFFFFF"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20.45 3H3.55C2.69 3 2 3.69 2 4.55v14.9C2 20.31 2.69 21 3.55 21h16.9c.86 0 1.55-.69 1.55-1.55V4.55C22 3.69 21.31 3 20.45 3zM8.337 17.125H5.578V9.375h2.759v7.75zM6.957 8.283a1.595 1.595 0 1 1 0-3.19 1.595 1.595 0 0 1 0 3.19zM18.42 17.125h-2.76v-3.738c0-.89-.018-2.038-1.24-2.038-1.24 0-1.43.967-1.43 1.97v3.806H10.23V9.375h2.64v1.067h.036c.369-.7 1.27-1.44 2.61-1.44 2.79 0 3.305 1.838 3.305 4.224v3.9z"
+              />
+            </svg>
+          </a>
+
+          <a href="https://www.instagram.com/" style="display: inline-block">
+            <svg
+              width="24"
+              height="24"
+              fill="#FFFFFF"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M7.75 2h8.5C19.54 2 22 4.46 22 7.75v8.5c0 3.29-2.46 5.75-5.75 5.75h-8.5C4.46 22 2 19.54 2 16.25v-8.5C2 4.46 4.46 2 7.75 2zM12 7.12a4.88 4.88 0 1 0 0 9.76 4.88 4.88 0 0 0 0-9.76zm0 8a3.12 3.12 0 1 1 0-6.24 3.12 3.12 0 0 1 0 6.24zM17.63 6.37a1.12 1.12 0 1 1-2.24 0 1.12 1.12 0 0 1 2.24 0z"
+              />
+            </svg>
+          </a>
+
+          <a href="https://www.twitter.com/" style="display: inline-block">
+            <svg
+              width="24"
+              height="24"
+              fill="#FFFFFF"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M22.23 5.924a8.38 8.38 0 0 1-2.415.662 4.216 4.216 0 0 0 1.849-2.323 8.3 8.3 0 0 1-2.644 1.012 4.187 4.187 0 0 0-7.234 3.814 11.86 11.86 0 0 1-8.605-4.362 4.2 4.2 0 0 0 1.297 5.596 4.176 4.176 0 0 1-1.894-.52v.052a4.19 4.19 0 0 0 3.355 4.104 4.17 4.17 0 0 1-1.887.072 4.2 4.2 0 0 0 3.92 2.915 8.39 8.39 0 0 1-6.157 1.723 11.83 11.83 0 0 0 6.4 1.872c7.675 0 11.876-6.36 11.876-11.876l-.014-.54a8.53 8.53 0 0 0 2.063-2.174z"
+              />
+            </svg>
+          </a>
+        </div>
+        <div style="text-align: center; padding-top: 15px">
+          <p style="color: #6d6b6b; font-size: 10px; margin: 0">
+            <svg
+              style="
+                width: 12px;
+                height: 12px;
+                margin-right: 4px;
+                vertical-align: middle;
+              "
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Powered by SyncoreLabs
+          </p>
+        </div>
+      </div>
+    </div>
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+
+      const url =
+        "https://signbuddy.s3.ap-south-1.amazonaws.com/agreements/45576f2c-779a-4e6a-9457-242000fde084-Use%20cases%20-%20HydPyHack.pdf";
+
+      fetch(url)
+        .then((response) => {
+          if (!response.ok)
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          return response.blob();
+        })
+        .then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          return pdfjsLib.getDocument(blobUrl).promise;
+        })
+        .then((pdf) => pdf.getPage(1))
+        .then((page) => {
+          const scale = 2.0; // Higher scale = better image quality
+          const viewport = page.getViewport({ scale });
+
+          const canvas = document.getElementById("hidden-canvas");
+          const context = canvas.getContext("2d");
+
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          return page
+            .render({ canvasContext: context, viewport })
+            .promise.then(() => {
+              const imageUrl = canvas.toDataURL("image/png");
+              document.getElementById("pdf-image").src = imageUrl;
+            });
+        })
+        .catch((error) => console.error("Error processing PDF:", error));
+    </script>
+  </body>
+</html>

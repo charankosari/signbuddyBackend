@@ -43,19 +43,40 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: 0,
   },
+  agreements: {
+    type: [String], // Store only an array of document keys
+    default: [],
+  },
   documentsSent: {
-    type: Number,
-    default: 0,
+    type: [
+      {
+        documentKey: { type: String, required: true },
+        ImageUrls: { type: [String], default: [] }, // Store image URLs
+        recipients: [
+          {
+            email: { type: String, required: true },
+            status: {
+              type: String,
+              enum: ["pending", "signed", "rejected"],
+              default: "pending",
+            },
+            signedDocument: { type: String, default: null },
+          },
+        ],
+      },
+    ],
+    default: [],
     validate: {
       validator: function (val) {
         if (this.subscriptionType === "free") {
-          return val <= 3;
+          return val.length <= 3;
         }
         return true;
       },
       message: "Free subscription users can send a maximum of 3 documents.",
     },
   },
+
   resetPasswordToken: String,
   resetPasswordExpire: Date,
 });
