@@ -12,6 +12,7 @@ const {
   deleteTemplate,
   sendAgreement,
   agreeDocument,
+  viewedDocument,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -31,6 +32,7 @@ router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
 router.route("/sendagreement").post(isAuthorized, sendAgreement);
 router
   .route("/agreedocument")
-  .post(isAuthorized, agreeDocument, upload.single("file"));
+  .post(isAuthorized, upload.single("file"), agreeDocument);
 
+router.route("/vieweddocument").post(isAuthorized, viewedDocument);
 module.exports = router;

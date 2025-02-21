@@ -57,7 +57,7 @@ const userSchema = new mongoose.Schema({
             email: { type: String, required: true },
             status: {
               type: String,
-              enum: ["pending", "signed", "rejected"],
+              enum: ["pending", "signed", "viewed", "rejected"],
               default: "pending",
             },
             signedDocument: { type: String, default: null },
