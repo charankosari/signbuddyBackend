@@ -41,8 +41,9 @@ const userSchema = new mongoose.Schema({
   },
   cooldownPeriod: {
     type: Date,
-    default: 0,
+    default: null,
   },
+  creditsUsedInMembership: { type: Number, default: 0 },
   agreements: {
     type: [String],
     default: [],
@@ -110,5 +111,27 @@ userSchema.methods.resetToken = function () {
   this.resetPasswordExpire = Date.now() + 1000 * 60 * 60 * 24 * 15;
   return token;
 };
+// ai cool down features
 
+userSchema.virtual("isInCooldown").get(function () {
+  return this.cooldownPeriod && new Date() < this.cooldownPeriod;
+});
+
+// 🔹 Set cooldown period for 6 hours
+userSchema.methods.setCooldownPeriod = function () {
+  this.cooldownPeriod = new Date(Date.now() + 6 * 60 * 60 * 1000); // 6 hours from now
+};
+
+// 🔹 Check if cooldown period has expired
+userSchema.methods.isCooldownExpired = function () {
+  if (!this.cooldownPeriod) return true; // No cooldown set
+  return new Date() > this.cooldownPeriod;
+};
+
+// 🔹 Reset cooldown period if expired
+userSchema.methods.resetCooldownIfExpired = function () {
+  if (this.isCooldownExpired()) {
+    this.cooldownPeriod = null;
+  }
+};
 module.exports = mongoose.model("User", userSchema);

@@ -15,6 +15,8 @@ const { putObject, deleteObject, getObject } = require("../utils/s3objects");
 const storage = multer.memoryStorage();
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
+const { error } = require("console");
+const generateAgreement = require("../utils/grokAi");
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -595,5 +597,65 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
   } catch (error) {
     console.error("Error updating document status:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+exports.createAgreement = asyncHandler(async (req, res) => {
+  try {
+    const { prompt, type } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+    if (user.subscriptionType === "free" && user.credits === 0) {
+      return res
+        .status(400)
+        .json({ error: "Free users are not able to use AI features " });
+    }
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+    if (user.cooldownPeriod && new Date() > user.cooldownPeriod) {
+      user.cooldownPeriod = null;
+      user.creditsUsedInMembership = 0;
+      await user.save();
+    }
+    const creditsRequired = type === "section" ? 4 : 10;
+    const now = new Date();
+    if (user.subscriptionType !== "free") {
+      if (
+        !user.cooldownPeriod &&
+        user.creditsUsedInMembership + creditsRequired > 4000
+      ) {
+        user.cooldownPeriod = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+      }
+    }
+    if (user.cooldownPeriod && user.cooldownPeriod > now) {
+      if (user.credits < creditsRequired) {
+        return res.status(403).json({
+          error: "You are in cooldown period and have insufficient credits.",
+        });
+      } else {
+        user.credits -= creditsRequired;
+      }
+    } else {
+      if (user.subscriptionType === "free" && user.credits < creditsRequired) {
+        return res.status(403).json({ error: "Insufficient credits." });
+      }
+
+      user.creditsUsedInMembership += creditsRequired;
+      user.credits -= creditsRequired;
+    }
+
+    // Generate agreement using Grok API
+    const agreementText = await generateAgreement(prompt, type || "full");
+
+    await user.save();
+
+    return res.status(200).json({ agreement: agreementText });
+  } catch (error) {
+    console.error("Error generating agreement:", error);
+    res.status(500).json({ error: error.message });
   }
 });
