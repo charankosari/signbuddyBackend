@@ -17,6 +17,7 @@ const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
 const { error } = require("console");
 const generateAgreement = require("../utils/grokAi");
+const PreUser = require("../models/preUsers");
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -659,3 +660,25 @@ exports.createAgreement = asyncHandler(async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+exports.getEmails = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const existingUser = await PreUser.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+    const newPreUser = new PreUser({ email });
+    await newPreUser.save();
+
+    res.status(201).json({ message: "Email saved successfully", email });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
