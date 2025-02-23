@@ -139,6 +139,176 @@ const emailBody = (name, previewImageUrl, redirectUrl, email) => {
   `;
 };
 
+const emailForPreuser = `<!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Thanks for Joining the waitlist!</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          background-color: #242424;
+          font-family: Arial, sans-serif;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          padding: 10px 0;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+          background-color: #dadadb;
+          padding: 24px 32px 0px;
+        }
+        #person_header {
+          width: 40%;
+          margin-bottom: 0;
+        }
+        #greet {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .header-text {
+          margin-top: 0;
+          text-align: right;
+          font-size: 20px;
+          font-weight: 700;
+          align-self: flex-end;
+          margin-bottom: 20px;
+        }
+        .thanks {
+          font-size: 32px;
+          font-weight: bold;
+          color: #09090b;
+          margin-bottom: 0px;
+          text-align: right;
+          align-self: flex-end !important;
+        }
+        .black-section {
+          background-color: #09090b;
+          color: #ffffff;
+          padding: 40px;
+        }
+        .message-text {
+          margin: 0 0 20px 0;
+          font-size: 14px;
+          line-height: 1.5;
+          color: #dadadb;
+          margin-bottom: 8px;
+        }
+        p.credits {
+          margin-bottom: 32px;
+        }
+        .credits-container {
+          background-color: #242424;
+          width: fit-content;
+          padding: 16px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: auto;
+        }
+        #credits_icon {
+          width: 24px;
+          height: 24px;
+        }
+        .credits-text {
+          font-size: 24px;
+          font-weight: bold;
+        }
+        .benefits-title {
+          font-size: 14px;
+          text-align: center;
+          color: #dadadb;
+          font-weight: 600;
+        }
+        .footer {
+          margin-top: 32px;
+        }
+        .extra-text {
+          font-size: 12px;
+          margin-top: 0;
+          color: #7a7a81;
+          line-height: 1.5;
+        }
+        hr {
+          height: 1px;
+          border: none;
+          border-top: 1px solid #404040;
+        }
+        .footer-copyright {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .footer-links {
+          display: flex;
+          gap: 20px;
+          font-size: 10px;
+          text-decoration: underline;
+          text-decoration-color: #404040;
+        }
+        .footer-text {
+          font-size: 10px;
+          color: #7a7a81;
+        }
+        .footer-link {
+          color: #666666;
+          text-decoration: none;
+        }
+        .footer-text-powered {
+          font-size: 12px;
+          color: #7a7a81;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <img src="https://signbuddy.s3.ap-south-1.amazonaws.com/person-image.png" alt="a person greeting" id="person_header" />
+          <div id="greet">
+            <p class="header-text">Signbuddy</p>
+            <p class="thanks">Thanks for joining the waitlist!</p>
+          </div>
+        </div>
+        <div class="black-section">
+          <p class="message-text">
+            Thank you for joining the <strong>SignBuddy</strong> waitlist! We're excited to have you onboard.
+            We're giving you 100 Free Credits to use when the application launches.
+          </p>
+          <p class="message-text">Stay tuned! We'll be live sooner than you expect.</p>
+          <p class="message-text credits">Best Regards<br />- Team SignBuddy</p>
+          <div class="credits-container">
+            <span><img src="https://signbuddy.s3.ap-south-1.amazonaws.com/credits-icon.png" alt="credits icon" id="credits_icon"/></span>
+            <span class="credits-text">100 Credits</span>
+          </div>
+          <p class="benefits-title">Here are your benefits for trusting us in the early stages.</p>
+        </div>
+        <div class="footer">
+          <hr />
+          <div class="footer-copyright" style="display:flex;flex-direction:row;gap:10">
+            <p class="footer-text">Copyright © 2025 SignFastly. All Rights Reserved.</p>
+       
+          </div>
+          <p class="footer-text-powered">Powered by <strong>Syncore Labs</strong></p>
+        </div>
+      </div>
+    </body>
+  </html>
+  `;
+
 exports.sendOTP = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
@@ -676,6 +846,8 @@ exports.getEmails = async (req, res) => {
     }
     const newPreUser = new PreUser({ email });
     await newPreUser.save();
+    const subject = "Joined the waitlist!";
+    sendEmail(email, subject, emailForPreuser);
 
     res.status(201).json({ message: "Email saved successfully", email });
   } catch (error) {
