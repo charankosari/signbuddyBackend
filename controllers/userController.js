@@ -6,7 +6,7 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
-const pdf2image = require("pdf-poppler");
+// const pdf2image = require("pdf-poppler");
 const fs = require("fs");
 const path = require("path");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -139,176 +139,811 @@ const emailBody = (name, previewImageUrl, redirectUrl, email) => {
   `;
 };
 
+// const emailForPreuser = `<!DOCTYPE html>
+// <html lang="en">
+//   <head>
+//     <meta charset="UTF-8" />
+//     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+//     <title>Thanks for Joining the waitlist!</title>
+//   </head>
+//   <body
+//     style="
+//       margin: 0;
+//       padding: 0;
+//       background-color: #242424;
+//       font-family: Arial, sans-serif;
+//     "
+//   >
+//     <table
+//       class="container"
+//       width="100%"
+//       cellpadding="0"
+//       cellspacing="0"
+//       role="presentation"
+//       style="
+//         border-collapse: collapse;
+//         mso-table-lspace: 0pt;
+//         mso-table-rspace: 0pt;
+//         width: 100%;
+//         max-width: 600px;
+//         margin: 0 auto;
+//       "
+//     >
+//       <tr>
+//         <td style="padding: 20px 20px 0px">
+//           <!-- Header Section -->
+//           <table
+//             width="100%"
+//             cellpadding="0"
+//             cellspacing="0"
+//             role="presentation"
+//             style="background-color: #dadadb; padding: 24px 32px 0"
+//             class="header"
+//           >
+//             <tr>
+//               <td width="45%" style="vertical-align: bottom; padding-bottom: 0">
+//                 <img
+//                   src="https://signbuddy.s3.ap-south-1.amazonaws.com/person-image.png"
+//                   alt="a person greeting"
+//                   id="person_header"
+//                   style="
+//                     -ms-interpolation-mode: bicubic;
+//                     border: 0;
+//                     height: auto;
+//                     line-height: 100%;
+//                     outline: none;
+//                     text-decoration: none;
+//                     width: 100%;
+//                     display: block;
+//                     margin-bottom: -1px;
+//                   "
+//                 />
+//               </td>
+//               <td style="vertical-align: top; padding: 20px 10px 0px">
+//                 <p
+//                   style="
+//                     margin: 0;
+//                     text-align: right;
+//                     font-size: 16px;
+//                     font-weight: 700;
+//                     margin-bottom: 20px;
+//                   "
+//                   class="header-text"
+//                 >
+//                   Signbuddy
+//                 </p>
+//                 <p
+//                   style="
+//                     font-size: 28px;
+//                     font-weight: bold;
+//                     color: #09090b;
+//                     margin: 0;
+//                     text-align: right;
+//                   "
+//                   class="thanks"
+//                 >
+//                   Thanks for joining the waitlist!
+//                 </p>
+//               </td>
+//             </tr>
+//           </table>
+
+//           <!-- Black Section -->
+//           <table
+//             width="100%"
+//             cellpadding="0"
+//             cellspacing="0"
+//             role="presentation"
+//             style="background-color: #09090b; color: #ffffff; padding: 32px"
+//           >
+//             <tr>
+//               <td>
+//                 <!-- Thank You Message -->
+//                 <p
+//                   style="
+//                     font-size: 14px;
+//                     line-height: 1.5;
+//                     color: #dadadb;
+//                     margin-bottom: 8px;
+//                   "
+//                 >
+//                   Thank you for joining the <strong>SignBuddy</strong> waitlist!
+//                   We're excited to have you onboard as we prepare to launch our
+//                   digital signing platform. We're giving you 100 Free Credits
+//                   which could be used when the application is launched.
+//                 </p>
+//                 <p
+//                   style="
+//                     font-size: 14px;
+//                     line-height: 1.5;
+//                     color: #dadadb;
+//                     margin-bottom: 8px;
+//                   "
+//                 >
+//                   Stay tuned! we'll be live way sooner that you expect. If you
+//                   have any questions, feel free to reply to this email.
+//                 </p>
+//                 <p
+//                   style="
+//                     font-size: 14px;
+//                     line-height: 1.5;
+//                     color: #dadadb;
+//                     margin-bottom: 32px;
+//                   "
+//                 >
+//                   Best Regards<br />
+//                   - Team SignBuddy
+//                 </p>
+
+//                 <!-- Credits Section -->
+//                 <table
+//                   width="100%"
+//                   cellpadding="0"
+//                   cellspacing="0"
+//                   role="presentation"
+//                 >
+//                   <tr>
+//                     <td align="center">
+//                       <table
+//                         cellpadding="0"
+//                         cellspacing="0"
+//                         role="presentation"
+//                         style="
+//                           background-color: #242424;
+//                           padding: 16px;
+//                           border-radius: 4px;
+//                           margin: auto;
+//                         "
+//                       >
+//                         <tr>
+//                           <td>
+//                             <img
+//                               src="https://signbuddy.s3.ap-south-1.amazonaws.com/credits-icon.png"
+//                               alt="credits icon"
+//                               style="
+//                                 width: 24px;
+//                                 height: 24px;
+//                                 vertical-align: middle;
+//                                 -ms-interpolation-mode: bicubic;
+//                                 border: 0;
+//                                 line-height: 100%;
+//                                 outline: none;
+//                                 text-decoration: none;
+//                               "
+//                             />
+//                             <span
+//                               style="
+//                                 font-size: 24px;
+//                                 font-weight: bold;
+//                                 vertical-align: middle;
+//                               "
+//                               >100 Credits</span
+//                             >
+//                           </td>
+//                         </tr>
+//                       </table>
+//                     </td>
+//                   </tr>
+//                 </table>
+
+//                 <p
+//                   style="
+//                     font-size: 14px;
+//                     text-align: center;
+//                     color: #dadadb;
+//                     font-weight: 600;
+//                   "
+//                 >
+//                   Here are your benefits for trusting at our initial stages
+//                 </p>
+
+//                 <!-- Footer -->
+//                 <div style="margin-top: 32px">
+//                   <p
+//                     style="
+//                       font-size: 12px;
+//                       color: #7a7a81;
+//                       line-height: 1.5;
+//                       margin: 0;
+//                     "
+//                   >
+//                     Signbuddy is a software that is used to make digital
+//                     agreements for any kind of users, small scale organizations
+//                     and Large Tech Giants. Lorem ipsum dolor sit amet,
+//                     consectetur adipiscing elit, sed do eiusmod tempor
+//                     incididunt ut labore et dolore magna aliqua. Signbuddy is a
+//                     software that is used to make digital agreements for any
+//                     kind of users, small scale organizations and Large Tech
+//                     Giants. Lorem ipsum dolor sit amet, consectetur adipiscing
+//                     elit, sed do eiusmod tempor incididunt ut labore et dolore
+//                     magna aliqua.
+//                   </p>
+//                   <div
+//                     style="border-top: 1px solid #404040; margin: 20px 0"
+//                   ></div>
+//                   <table
+//                     width="100%"
+//                     cellpadding="0"
+//                     cellspacing="0"
+//                     role="presentation"
+//                     class="footer-copyright"
+//                   >
+//                     <tr>
+//                       <td style="text-align: left">
+//                         <p style="font-size: 10px; color: #7a7a81; margin: 0">
+//                           Copyright © 2025 SignFastly. All Rights Reserved.
+//                         </p>
+//                       </td>
+//                       <td style="text-align: right">
+//                         <a
+//                           href="#"
+//                           style="
+//                             color: #666666;
+//                             text-decoration: underline;
+//                             font-size: 10px;
+//                             padding: 0 10px;
+//                           "
+//                           >Privacy Policy</a
+//                         >
+
+//                         <a
+//                           href="#"
+//                           style="
+//                             color: #666666;
+//                             text-decoration: underline;
+//                             font-size: 10px;
+//                             padding: 0 10px;
+//                           "
+//                           >Terms & Conditions</a
+//                         >
+//                       </td>
+//                     </tr>
+//                   </table>
+//                   <table
+//                     width="100%"
+//                     cellpadding="0"
+//                     cellspacing="0"
+//                     role="presentation"
+//                   >
+//                     <tr>
+//                       <td align="center">
+//                         <p
+//                           style="
+//                             font-size: 12px;
+//                             color: #7a7a81;
+//                             text-align: center;
+//                           "
+//                         >
+//                           Powered by <strong>Syncore Labs </strong>
+//                         </p>
+//                       </td>
+//                     </tr>
+//                   </table>
+//                 </div>
+//               </td>
+//             </tr>
+//           </table>
+//         </td>
+//       </tr>
+//     </table>
+
+//     <!-- Media Query Styles -->
+//     <!--[if !mso]><!-->
+//     <style>
+//       @media only screen and (max-width: 600px) {
+//         .footer-copyright tr {
+//           display: flex !important;
+//           flex-direction: column !important;
+//         }
+//         .footer-copyright td {
+//           width: 100% !important;
+//           text-align: center !important;
+//           padding: 4px 0 !important;
+//         }
+//         .header tr {
+//           display: flex !important;
+//           flex-direction: column-reverse !important;
+//         }
+//         .header td {
+//           width: 100% !important;
+//           text-align: center !important;
+//           padding: 0 !important;
+//         }
+//         .header img {
+//           width: 50% !important;
+//           margin: 0 auto !important;
+//         }
+//         .header-text {
+//           text-align: center !important;
+//           margin-bottom: 12px !important;
+//         }
+//         .thanks {
+//           font-size: 20px !important;
+//           text-align: center !important;
+//           margin-bottom: 20px !important;
+//         }
+//         .message-text {
+//           font-size: 12px !important;
+//         }
+//         .black-section {
+//           padding: 20px !important;
+//         }
+//         .credits-text {
+//           font-size: 16px !important;
+//         }
+//         #credits_icon {
+//           width: 16px !important;
+//           height: 16px !important;
+//         }
+//         .credits-container {
+//           padding: 12px !important;
+//         }
+//         .benefits-title {
+//           font-size: 12px !important;
+//         }
+//         .footer {
+//           margin-top: 20px !important;
+//         }
+//         .footer-copyright td {
+//           display: block !important;
+//           width: 100% !important;
+//           text-align: center !important;
+//         }
+//         .footer-text {
+//           margin-bottom: 16px !important;
+//         }
+//       }
+
+//       @media only screen and (max-width: 450px) {
+//         .header td {
+//           display: block !important;
+//           width: 100% !important;
+//           text-align: center !important;
+//         }
+//         .header-text {
+//           text-align: center !important;
+//           margin-bottom: 0 !important;
+//           font-size: 10px !important;
+//         }
+//         .thanks {
+//           font-size: 16px !important;
+//           margin: 8px 0px 12px !important;
+//           text-align: center !important;
+//         }
+//         #person_header {
+//           margin: 0 auto !important;
+//           display: block !important;
+//         }
+//       }
+//     </style>
+//     <!--<![endif]-->
+//   </body>
+// </html>
+
+//   `;
+
 const emailForPreuser = `<!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Thanks for Joining the waitlist!</title>
-      <style>
-        body {
-          margin: 0;
-          padding: 0;
-          background-color: #242424;
-          font-family: Arial, sans-serif;
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thanks for Joining the waitlist!</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #242424;
+      font-family: Arial, sans-serif;
+    "
+  >
+    <table
+      class="container"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      role="presentation"
+      style="
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+      "
+    >
+      <tr>
+        <td style="padding: 20px 20px 0px">
+          <!-- Header Section -->
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              background-color: #dadadb;
+              padding: 24px 32px 0;
+              max-width: 100%;
+            "
+            class="header"
+          >
+            <!--[if !mso]><!-->
+            <tr
+              style="
+                display: flex;
+                flex-direction: row;
+                max-width: 100%;
+                width: 100%;
+              "
+            >
+              <!--<![endif]-->
+              <!--[if mso]>
+            <tr>
+            <![endif]-->
+              <td
+                width="45%"
+                style="
+                  vertical-align: bottom;
+                  padding-bottom: 0;
+                  display: inline-block;
+                  width: 45%;
+                  min-width: 200px;
+                  flex: 1;
+                "
+              >
+                <img
+                  src="https://signbuddy.s3.ap-south-1.amazonaws.com/person-image.png"
+                  alt="a person greeting"
+                  id="person_header"
+                  style="
+                    -ms-interpolation-mode: bicubic;
+                    border: 0;
+                    height: auto;
+                    line-height: 100%;
+                    outline: none;
+                    text-decoration: none;
+                    width: 100%;
+                    display: block;
+                    margin-bottom: -1px;
+                    max-width: 100%;
+                    margin: 0 auto;
+                  "
+                />
+              </td>
+              <td
+                style="
+                  vertical-align: top;
+                  padding: 20px 10px 0px;
+                  display: inline-block;
+                  width: 55%;
+                  min-width: 200px;
+                  flex: 1;
+                "
+              >
+                <p
+                  style="
+                    margin: 0;
+                    text-align: right;
+                    font-size: 16px;
+                    font-weight: 700;
+                    margin-bottom: 20px;
+                    max-width: 100%;
+                  "
+                  class="header-text"
+                >
+                  Signbuddy
+                </p>
+                <p
+                  style="
+                    font-size: 28px;
+                    font-weight: bold;
+                    color: #09090b;
+                    margin: 0;
+                    text-align: right;
+                    max-width: 100%;
+                  "
+                  class="thanks"
+                >
+                  Thanks for joining the waitlist!
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Black Section -->
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="background-color: #09090b; color: #ffffff; padding: 32px"
+          >
+            <tr>
+              <td>
+                <!-- Thank You Message -->
+                <p
+                  style="
+                    font-size: 14px;
+                    line-height: 1.5;
+                    color: #dadadb;
+                    margin-bottom: 8px;
+                  "
+                >
+                  Thank you for joining the <strong>SignBuddy</strong> waitlist!
+                  We're excited to have you onboard as we prepare to launch our
+                  digital signing platform. We're giving you 100 Free Credits
+                  which could be used when the application is launched.
+                </p>
+                <p
+                  style="
+                    font-size: 14px;
+                    line-height: 1.5;
+                    color: #dadadb;
+                    margin-bottom: 8px;
+                  "
+                >
+                  Stay tuned! we'll be live way sooner that you expect. If you
+                  have any questions, feel free to reply to this email.
+                </p>
+                <p
+                  style="
+                    font-size: 14px;
+                    line-height: 1.5;
+                    color: #dadadb;
+                    margin-bottom: 32px;
+                  "
+                >
+                  Best Regards<br />
+                  - Team SignBuddy
+                </p>
+
+                <!-- Credits Section -->
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  role="presentation"
+                >
+                  <tr>
+                    <td align="center">
+                      <table
+                        cellpadding="0"
+                        cellspacing="0"
+                        role="presentation"
+                        style="
+                          background-color: #242424;
+                          padding: 16px;
+                          border-radius: 4px;
+                          margin: auto;
+                        "
+                      >
+                        <tr>
+                          <td>
+                            <img
+                              src="https://signbuddy.s3.ap-south-1.amazonaws.com/credits-icon.png"
+                              alt="credits icon"
+                              style="
+                                width: 24px;
+                                height: 24px;
+                                vertical-align: middle;
+                                -ms-interpolation-mode: bicubic;
+                                border: 0;
+                                line-height: 100%;
+                                outline: none;
+                                text-decoration: none;
+                              "
+                            />
+                            <span
+                              style="
+                                font-size: 24px;
+                                font-weight: bold;
+                                vertical-align: middle;
+                              "
+                              >100 Credits</span
+                            >
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+
+                <p
+                  style="
+                    font-size: 14px;
+                    text-align: center;
+                    color: #dadadb;
+                    font-weight: 600;
+                  "
+                >
+                  Here are your benefits for trusting at our initial stages
+                </p>
+
+                <!-- Footer -->
+                <div style="margin-top: 32px">
+                  <p
+                    style="
+                      font-size: 12px;
+                      color: #7a7a81;
+                      line-height: 1.5;
+                      margin: 0;
+                    "
+                  >
+                    SignBuddy is a smart, affordable digital signing platform
+                    designed for seamless document management. Users can sign
+                    up, create or upload documents, and send them via email for
+                    signatures. The first three documents are free, making it
+                    accessible for individuals and businesses. AI-powered
+                    assistance helps in document creation, saving time and
+                    effort. Secure, legally binding e-signatures ensure
+                    compliance with industry standards. Affordable pricing makes
+                    it a great alternative to costly solutions like DocuSign.
+                    Sign documents from anywhere, on any device, with a simple
+                    and intuitive interface. Streamline your workflow with
+                    SignBuddy - where signing documents is effortless.
+                  </p>
+                  <div
+                    style="border-top: 1px solid #404040; margin: 20px 0"
+                  ></div>
+                  <table
+                    width="100%"
+                    cellpadding="0"
+                    cellspacing="0"
+                    role="presentation"
+                    class="footer-copyright"
+                  >
+                    <tr>
+                      <td style="text-align: left">
+                        <p style="font-size: 10px; color: #7a7a81; margin: 0">
+                          Copyright © 2025 SignFastly. All Rights Reserved.
+                        </p>
+                      </td>
+                      <td style="text-align: right">
+                        <a
+                          href="#"
+                          style="
+                            color: #666666;
+                            text-decoration: underline;
+                            font-size: 10px;
+                            padding: 0 10px;
+                          "
+                          >Privacy Policy</a
+                        >
+
+                        <a
+                          href="#"
+                          style="
+                            color: #666666;
+                            text-decoration: underline;
+                            font-size: 10px;
+                            padding: 0 10px;
+                          "
+                          >Terms & Conditions</a
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                  <table
+                    width="100%"
+                    cellpadding="0"
+                    cellspacing="0"
+                    role="presentation"
+                  >
+                    <tr>
+                      <td align="center">
+                        <p
+                          style="
+                            font-size: 12px;
+                            color: #7a7a81;
+                            text-align: center;
+                          "
+                        >
+                          Powered by <strong>Syncore Labs </strong>
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Media Query Styles -->
+    <!--[if !mso]><!-->
+    <style>
+      @media only screen and (max-width: 600px) {
+        .footer-copyright tr {
+          display: flex !important;
+          flex-direction: column !important;
         }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
+        .footer-copyright td {
+          width: 100% !important;
+          text-align: center !important;
+          padding: 4px 0 !important;
         }
-        .header {
-          padding: 10px 0;
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          justify-content: space-between;
-          background-color: #dadadb;
-          padding: 24px 32px 0px;
+        .header tr {
+          display: flex !important;
+          flex-direction: column-reverse !important;
+          width: 100% !important;
         }
-        #person_header {
-          width: 40%;
-          margin-bottom: 0;
+        .header td {
+          width: 100% !important;
+          text-align: center !important;
+          padding: 0 !important;
+          flex: none !important;
         }
-        #greet {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: space-between;
+        .header img {
+          width: 50% !important;
+          margin: 0 auto !important;
         }
         .header-text {
-          margin-top: 0;
-          text-align: right;
-          font-size: 20px;
-          font-weight: 700;
-          align-self: flex-end;
-          margin-bottom: 20px;
+          text-align: center !important;
+          margin-bottom: 12px !important;
         }
         .thanks {
-          font-size: 32px;
-          font-weight: bold;
-          color: #09090b;
-          margin-bottom: 0px;
-          text-align: right;
-          align-self: flex-end !important;
-        }
-        .black-section {
-          background-color: #09090b;
-          color: #ffffff;
-          padding: 40px;
+          font-size: 20px !important;
+          text-align: center !important;
+          margin-bottom: 20px !important;
         }
         .message-text {
-          margin: 0 0 20px 0;
-          font-size: 14px;
-          line-height: 1.5;
-          color: #dadadb;
-          margin-bottom: 8px;
+          font-size: 12px !important;
         }
-        p.credits {
-          margin-bottom: 32px;
-        }
-        .credits-container {
-          background-color: #242424;
-          width: fit-content;
-          padding: 16px;
-          border-radius: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          margin: auto;
-        }
-        #credits_icon {
-          width: 24px;
-          height: 24px;
+        .black-section {
+          padding: 20px !important;
         }
         .credits-text {
-          font-size: 24px;
-          font-weight: bold;
+          font-size: 16px !important;
+        }
+        #credits_icon {
+          width: 16px !important;
+          height: 16px !important;
+        }
+        .credits-container {
+          padding: 12px !important;
         }
         .benefits-title {
-          font-size: 14px;
-          text-align: center;
-          color: #dadadb;
-          font-weight: 600;
+          font-size: 12px !important;
         }
         .footer {
-          margin-top: 32px;
+          margin-top: 20px !important;
         }
-        .extra-text {
-          font-size: 12px;
-          margin-top: 0;
-          color: #7a7a81;
-          line-height: 1.5;
-        }
-        hr {
-          height: 1px;
-          border: none;
-          border-top: 1px solid #404040;
-        }
-        .footer-copyright {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .footer-links {
-          display: flex;
-          gap: 20px;
-          font-size: 10px;
-          text-decoration: underline;
-          text-decoration-color: #404040;
+        .footer-copyright td {
+          display: block !important;
+          width: 100% !important;
+          text-align: center !important;
         }
         .footer-text {
-          font-size: 10px;
-          color: #7a7a81;
+          margin-bottom: 16px !important;
         }
-        .footer-link {
-          color: #666666;
-          text-decoration: none;
-        }
-        .footer-text-powered {
-          font-size: 12px;
-          color: #7a7a81;
-          text-align: center;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <img src="https://signbuddy.s3.ap-south-1.amazonaws.com/person-image.png" alt="a person greeting" id="person_header" />
-          <div id="greet">
-            <p class="header-text">Signbuddy</p>
-            <p class="thanks">Thanks for joining the waitlist!</p>
-          </div>
-        </div>
-        <div class="black-section">
-          <p class="message-text">
-            Thank you for joining the <strong>SignBuddy</strong> waitlist! We're excited to have you onboard.
-            We're giving you 100 Free Credits to use when the application launches.
-          </p>
-          <p class="message-text">Stay tuned! We'll be live sooner than you expect.</p>
-          <p class="message-text credits">Best Regards<br />- Team SignBuddy</p>
-          <div class="credits-container">
-            <span><img src="https://signbuddy.s3.ap-south-1.amazonaws.com/credits-icon.png" alt="credits icon" id="credits_icon"/></span>
-            <span class="credits-text">100 Credits</span>
-          </div>
-          <p class="benefits-title">Here are your benefits for trusting us in the early stages.</p>
-        </div>
-        <div class="footer">
-          <hr />
-          <div class="footer-copyright" style="display:flex;flex-direction:row;gap:10">
-            <p class="footer-text">Copyright © 2025 SignFastly. All Rights Reserved.</p>
-       
-          </div>
-          <p class="footer-text-powered">Powered by <strong>Syncore Labs</strong></p>
-        </div>
-      </div>
-    </body>
-  </html>
-  `;
+      }
 
+      @media only screen and (max-width: 450px) {
+        .header td {
+          display: block !important;
+          width: 100% !important;
+          text-align: center !important;
+        }
+        .header-text {
+          text-align: center !important;
+          margin-bottom: 0 !important;
+          font-size: 10px !important;
+        }
+        .thanks {
+          font-size: 16px !important;
+          margin: 8px 0px 12px !important;
+          text-align: center !important;
+        }
+        #person_header {
+          margin: 0 auto !important;
+          display: block !important;
+        }
+      }
+    </style>
+    <!--<![endif]-->
+  </body>
+</html>
+`;
 exports.sendOTP = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
