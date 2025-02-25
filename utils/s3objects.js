@@ -6,6 +6,7 @@ const {
 } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
 const asyncHandler = require("../middleware/asynchandler");
+const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 config({ path: "config/config.env" });
 // connection
 exports.s3Client = new S3Client({
@@ -129,5 +130,40 @@ exports.getImagesFromFolder = async (folderName) => {
   } catch (error) {
     console.error("Error fetching images:", error);
     return { error: "Failed to fetch images" };
+  }
+};
+exports.getAvatars = async (req, res) => {
+  try {
+    const folderName = "avatars";
+    const prefix = folderName.endsWith("/") ? folderName : `${folderName}/`;
+
+    const bucketName = process.env.AWS_S3_BUCKET;
+    if (!bucketName) {
+      return res.status(500).json({ error: "AWS_BUCKET_NAME is not defined" });
+    }
+
+    const params = {
+      Bucket: bucketName,
+      Prefix: prefix,
+    };
+
+    const command = new ListObjectsV2Command(params);
+    const data = await s3Client.send(command);
+
+    if (!data.Contents || data.Contents.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No images found in this folder" });
+    }
+
+    const imageUrls = data.Contents.map((file) => ({
+      key: file.Key,
+      url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${file.Key}`,
+    }));
+
+    return res.status(200).json(imageUrls);
+  } catch (error) {
+    console.error("Error fetching images:", error);
+    return res.status(500).json({ error: "Failed to fetch images" });
   }
 };

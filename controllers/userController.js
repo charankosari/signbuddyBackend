@@ -6,7 +6,8 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
-// const pdf2image = require("pdf-poppler");
+const pdfParse = require("pdf-parse");
+const { fromPath } = require("pdf2pic");
 const fs = require("fs");
 const path = require("path");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -1180,43 +1181,39 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       const fileKey = `agreements/${uniqueId}-${originalname}`;
       const imagesFolder = `images/${uniqueId}-${originalname}`;
 
-      // Temp file paths
       const tempFilePath = path.join(__dirname, "../temp", `${uniqueId}.pdf`);
 
-      // Save file locally
       fs.writeFileSync(tempFilePath, req.file.buffer);
-
-      // Upload PDF to S3
       const fileBuffer = fs.readFileSync(tempFilePath);
       const docUpload = await putObject(fileBuffer, fileKey, req.file.mimetype);
       if (docUpload.status !== 200) {
         return res.status(500).json({ error: "Failed to upload document" });
       }
       const docUrl = docUpload.url;
-      const pdfToImageOptions = {
+
+      const options = {
+        density: 150,
+        saveFilename: uniqueId,
+        savePath: path.dirname(tempFilePath),
         format: "jpeg",
-        out_dir: path.dirname(tempFilePath),
-        out_prefix: uniqueId,
+        width: 1240,
       };
-      await pdf2image.convert(tempFilePath, pdfToImageOptions);
-
-      const imageFiles = fs
-        .readdirSync(path.dirname(tempFilePath))
-        .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"))
-        .sort();
-
-      if (!imageFiles.length) {
-        return res
-          .status(500)
-          .json({ error: "Failed to convert PDF to images" });
+      const convert = fromPath(tempFilePath, options);
+      let conversionResult;
+      try {
+        conversionResult = await convert.bulk(-1);
+        console.log("Conversion result:", conversionResult);
+      } catch (convErr) {
+        console.error("Error during PDF-to-image conversion:", convErr);
+        throw convErr;
       }
 
       let imageUrls = [];
 
-      for (const imageFile of imageFiles) {
-        const imagePath = path.join(path.dirname(tempFilePath), imageFile);
+      for (const page of conversionResult) {
+        const imagePath = page.path;
         const imageBuffer = fs.readFileSync(imagePath);
-        const imageKey = `${imagesFolder}/${imageFile}`;
+        const imageKey = `${imagesFolder}/${path.basename(imagePath)}`;
 
         const imageUpload = await putObject(
           imageBuffer,
