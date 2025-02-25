@@ -15,6 +15,7 @@ const {
   viewedDocument,
   createAgreement,
   getEmails,
+  addDraft,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -30,6 +31,7 @@ router.route("/resetpassword/:id").post(resetPassword);
 router.route("/me").get(isAuthorized, userDetails);
 router.route("/addDetails").post(isAuthorized, updateDetails);
 router.route("/addtemplate").post(isAuthorized, addTemplate);
+router.route("/adddrafts").post(isAuthorized, addDraft);
 router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
 router.route("/sendagreement").post(isAuthorized, sendAgreement);
 router

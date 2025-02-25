@@ -1141,6 +1141,50 @@ exports.addTemplate = (req, res) => {
     }
   });
 };
+exports.addDraft = (req, res) => {
+  const user = User.findById(req.user.id);
+  if (!user) {
+    return next(new errorHandler("Login to make a template", 400));
+  }
+  upload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    try {
+      const fileName = `drafts/${Date.now()}-${req.file.originalname}`;
+      const result = await putObject(
+        req.file.buffer,
+        fileName,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+
+      if (result.status !== 200) {
+        return res.status(500).json({ error: "Failed to upload file" });
+      }
+      const draft = {
+        fileKey: result.key,
+        fileUrl: result.url,
+        uploadedAt: new Date(),
+      };
+
+      user.drafts.push(draft);
+      await user.save();
+      res.status(201).json({
+        message: "File uploaded successfully",
+        fileUrl: result.url,
+        key: result.key,
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+};
 
 exports.deleteTemplate = async (req, res) => {
   try {

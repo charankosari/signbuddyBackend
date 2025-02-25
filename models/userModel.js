@@ -87,6 +87,16 @@ const userSchema = new mongoose.Schema({
     ],
     default: [],
   },
+  drafts: {
+    type: [
+      {
+        fileKey: { type: String, required: true },
+        fileUrl: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
 
   resetPasswordToken: String,
   resetPasswordExpire: Date,
