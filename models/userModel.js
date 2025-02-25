@@ -77,6 +77,16 @@ const userSchema = new mongoose.Schema({
       message: "Free subscription users can send a maximum of 3 documents.",
     },
   },
+  templates: {
+    type: [
+      {
+        fileKey: { type: String, required: true },
+        fileUrl: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
 
   resetPasswordToken: String,
   resetPasswordExpire: Date,

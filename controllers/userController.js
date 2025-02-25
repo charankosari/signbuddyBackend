@@ -1098,6 +1098,10 @@ exports.updateDetails = asyncHandler(async (req, res, next) => {
 });
 
 exports.addTemplate = (req, res) => {
+  const user = User.findById(req.user.id);
+  if (!user) {
+    return next(new errorHandler("Login to make a template", 400));
+  }
   upload(req, res, async (err) => {
     if (err) {
       return res.status(400).json({ error: err.message });
@@ -1118,7 +1122,14 @@ exports.addTemplate = (req, res) => {
       if (result.status !== 200) {
         return res.status(500).json({ error: "Failed to upload file" });
       }
+      const template = {
+        fileKey: result.key,
+        fileUrl: result.url,
+        uploadedAt: new Date(),
+      };
 
+      user.templates.push(template);
+      await user.save();
       res.status(201).json({
         message: "File uploaded successfully",
         fileUrl: result.url,
@@ -1130,6 +1141,7 @@ exports.addTemplate = (req, res) => {
     }
   });
 };
+
 exports.deleteTemplate = async (req, res) => {
   try {
     const { key } = req.body;
