@@ -1082,7 +1082,31 @@ exports.userDetails = asyncHandler(async (req, res, next) => {
   if (!user) {
     return next(new errorHandler("Login to access this resource", 400));
   }
-  res.status(200).send({ success: true, user });
+  const templatesCount = user.templates.length;
+
+  // Calculate total documents count (documentsSent + drafts)
+  const totalDocuments = user.documentsSent.length + user.drafts.length;
+
+  // Documents in which all recipients have signed
+  const completedDocuments = user.documentsSent.filter(
+    (doc) =>
+      doc.recipients.length > 0 &&
+      doc.recipients.every((recipient) => recipient.status === "signed")
+  ).length;
+
+  // Documents that have at least one pending recipient
+  const pendingDocuments = user.documentsSent.filter((doc) =>
+    doc.recipients.some((recipient) => recipient.status === "pending")
+  ).length;
+
+  res.status(200).send({
+    success: true,
+    user,
+    templatesCount,
+    totalDocuments,
+    completedDocuments,
+    pendingDocuments,
+  });
 });
 // update details
 exports.updateDetails = asyncHandler(async (req, res, next) => {
