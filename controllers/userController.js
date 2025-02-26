@@ -880,9 +880,13 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
 
       const emails = Object.values(JSON.parse(req.body.emails));
       const names = Object.values(JSON.parse(req.body.names));
-      if (!emails.length || !names.length) {
-        return res.status(400).json({ error: "Missing required fields" });
+      let placeholders;
+      try {
+        placeholders = JSON.parse(req.body.placeholders);
+      } catch (error) {
+        return res.status(400).json({ error: "Invalid placeholders format" });
       }
+      console.log(placeholders);
 
       const uniqueId = uuidv4();
       const originalname = req.file.originalname.trimStart();
@@ -936,27 +940,6 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
 
       fs.unlinkSync(tempFilePath);
 
-      // for (const page of conversionResult) {
-      //   const imagePath = page.path;
-      //   const imageBuffer = fs.readFileSync(imagePath);
-      //   const imageKey = `${imagesFolder}/${path.basename(imagePath)}`;
-
-      //   const imageUpload = await putObject(
-      //     imageBuffer,
-      //     imageKey,
-      //     "image/jpeg"
-      //   );
-
-      //   if (imageUpload.status !== 200) {
-      //     return res.status(500).json({ error: "Failed to upload images" });
-      //   }
-
-      //   imageUrls.push(imageUpload.url);
-      //   fs.unlinkSync(imagePath);
-      // }
-
-      // fs.unlinkSync(tempFilePath);
-
       const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
         docUrl
       )}`;
@@ -982,6 +965,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
         ImageUrls: imageUrls,
         documentName: originalname,
         sentAt: date,
+        placeholders: placeholders,
       };
 
       const updatedUser = await User.findByIdAndUpdate(

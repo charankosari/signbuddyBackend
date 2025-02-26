@@ -71,6 +71,30 @@ const userSchema = new mongoose.Schema({
             userName: { type: String },
           },
         ],
+        placeholders: {
+          type: [
+            {
+              placeholderNumber: { type: Number, required: true },
+              position: {
+                x: { type: String, required: true },
+                y: { type: String, required: true },
+              },
+              type: {
+                type: String,
+                required: true,
+                enum: ["text", "signature", "date"],
+              },
+              size: {
+                width: { type: String, required: true },
+                height: { type: String, required: true },
+              },
+              assignedTo: { type: String, required: true },
+              email: { type: String, required: true },
+              pageNumber: { type: Number, required: true },
+            },
+          ],
+          default: [],
+        },
       },
     ],
     default: [],
