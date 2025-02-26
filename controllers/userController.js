@@ -138,7 +138,17 @@ const emailBody = (name, previewImageUrl, redirectUrl, email) => {
 </html>
   `;
 };
+const formatTimeAgo = (date) => {
+  const now = new Date();
+  const diff = Math.floor((now - date) / 1000); // Difference in seconds
 
+  if (diff < 60) return `${diff} seconds ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
+  if (diff < 31536000) return `${Math.floor(diff / 2592000)} months ago`;
+  return `${Math.floor(diff / 31536000)} years ago`;
+};
 const emailForPreuser = `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -1206,7 +1216,31 @@ exports.getEmails = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
 exports.recentDocuments = asyncHandler(async (req, res, next) => {
-  const user = User.findById(req.user.id);
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ message: "User not found" });
+
+  const recentDocs = user.documentsSent.map((doc) => {
+    const { documentKey, documentName, ImageUrls, sentAt, recipients } = doc;
+    const recipientDetails = recipients.map((r) => ({
+      name: r.userName || r.email,
+      email: r.email,
+    }));
+    const recipientStatuses = recipients.map((r) => r.status);
+    let status = "pending";
+    if (recipientStatuses.includes("viewed")) status = "viewed";
+    if (recipientStatuses.every((s) => s === "signed")) status = "completed";
+    const signedDocument =
+      recipients.find((r) => r.signedDocument)?.signedDocument || null;
+    return {
+      documentKey,
+      documentName,
+      documentUrl: ImageUrls,
+      status,
+      timeAgo: formatTimeAgo(new Date(sentAt)),
+      recipients: recipientDetails,
+      signedDocument,
+    };
+  });
+  res.status(200).json({ recentDocuments: recentDocs });
 });
