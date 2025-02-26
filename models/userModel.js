@@ -67,9 +67,8 @@ const userSchema = new mongoose.Schema({
             signedDocument: { type: String, default: null },
             avatar: {
               type: String,
-              required: true,
             },
-            userName: { type: String, required: true },
+            userName: { type: String },
           },
         ],
       },
