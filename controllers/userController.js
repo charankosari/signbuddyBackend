@@ -893,7 +893,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
         saveFilename: uniqueId,
         savePath: path.dirname(tempFilePath),
         format: "jpeg",
-        quality: 100,
+        quality: 500,
         height: 842,
         width: 595,
       };
