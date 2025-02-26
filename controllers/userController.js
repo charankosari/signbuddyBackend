@@ -893,7 +893,9 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
         saveFilename: uniqueId,
         savePath: path.dirname(tempFilePath),
         format: "jpeg",
-        width: 2480, // A4 size width in pixels for high quality
+        quality: 100,
+        height: 842,
+        width: 300,
       };
 
       const convert = fromPath(tempFilePath, options);
