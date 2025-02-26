@@ -960,16 +960,18 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
           emailBody(names[index], previewImageUrl, redirectUrl, email)
         );
       });
-
+      const date = new Date();
       const newDocument = {
         documentKey: fileKey,
         recipients: emails.map((email) => ({
           email,
           status: "pending",
+          avatar: user.avatar,
+          userName: user.userName,
         })),
         ImageUrls: imageUrls,
-        avatar: user.avatar,
-        userName: user.userName,
+        documentName: originalname,
+        sentAt: date,
       };
 
       const updatedUser = await User.findByIdAndUpdate(

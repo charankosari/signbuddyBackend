@@ -53,7 +53,9 @@ const userSchema = new mongoose.Schema({
     type: [
       {
         documentKey: { type: String, required: true },
-        ImageUrls: { type: [String], default: [] }, // Store image URLs
+        documentName: { type: String },
+        sentAt: { type: Date, default: Date.now },
+        ImageUrls: { type: [String], default: [] },
         recipients: [
           {
             email: { type: String, required: true },
