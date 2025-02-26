@@ -8,6 +8,7 @@ const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
 const { PDFDocument } = require("pdf-lib");
+const { axios } = require("axios");
 const fs = require("fs");
 const path = require("path");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -990,24 +991,34 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
     }
   });
 });
-
 exports.agreeDocument = asyncHandler(async (req, res, next) => {
   try {
     const { senderEmail, documentKey } = req.body;
-    if (!senderEmail || !documentKey || !req.file) {
+    if (!senderEmail || !documentKey) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // 1. Parse placeholders array from the request body.
+    let placeholdersFromReq = [];
+    if (req.body.placeholders) {
+      try {
+        placeholdersFromReq = JSON.parse(req.body.placeholders);
+      } catch (parseErr) {
+        return res.status(400).json({ error: "Invalid JSON in placeholders" });
+      }
+    }
+
+    // 2. Find sender user and present user
     const senderUser = await User.findOne({ email: senderEmail });
     if (!senderUser) {
       return res.status(404).json({ error: "Sender user not found" });
     }
-
     const presentUser = await User.findById(req.user.id);
     if (!presentUser) {
       return res.status(404).json({ error: "Present user not found" });
     }
 
+    // 3. Locate the document in senderUser.documentsSent by documentKey
     const document = senderUser.documentsSent.find(
       (doc) => doc.documentKey === documentKey
     );
@@ -1017,6 +1028,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         .json({ error: "Document not found in sender user's documentsSent" });
     }
 
+    // 4. Mark the recipient whose email matches the present user as "signed"
     const recipient = document.recipients.find(
       (r) => r.email === presentUser.email
     );
@@ -1025,36 +1037,63 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     }
     recipient.status = "signed";
 
-    const placeholder = document.placeholders.find(
-      (ph) => ph.email === presentUser.email
-    );
-    if (!placeholder) {
-      return res
-        .status(404)
-        .json({ error: "Placeholder not found for present user" });
+    // 5. For each placeholder in placeholdersFromReq, update the doc placeholder
+    //    if it matches by email + type. If it's a signature placeholder for the present user,
+    //    we can use req.file for the signature image.
+    for (const phReq of placeholdersFromReq) {
+      const { email, type, value } = phReq;
+
+      // Find matching placeholder in the document by email + type (or just by email if each user has only one placeholder)
+      const docPlaceholder = document.placeholders.find(
+        (p) => p.email === email && p.type === type
+      );
+
+      if (!docPlaceholder) {
+        console.log(
+          `No matching doc placeholder found for ${email}, type=${type}`
+        );
+        continue;
+      }
+
+      // If it's a signature placeholder for the present user, we handle file upload
+      if (type === "signature" && email === presentUser.email) {
+        if (!req.file) {
+          console.log("No file uploaded for signature placeholder");
+          continue;
+        }
+        // Upload the file to S3
+        const tempDir = path.join(__dirname, "../temp");
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+        const signatureId = uuidv4();
+        const imageFile = `${signatureId}.jpg`;
+        const tempFilePath = path.join(tempDir, imageFile);
+        fs.writeFileSync(tempFilePath, req.file.buffer);
+        const imageBuffer = fs.readFileSync(tempFilePath);
+        const imagesFolder = `signatures/${documentKey}`;
+        const imageKey = `${imagesFolder}/${imageFile}`;
+        const imageUpload = await putObject(
+          imageBuffer,
+          imageKey,
+          "image/jpeg"
+        );
+        if (imageUpload.status !== 200) {
+          return res
+            .status(500)
+            .json({ error: "Failed to upload signature image" });
+        }
+        docPlaceholder.value = imageUpload.url;
+        fs.unlinkSync(tempFilePath);
+      }
+      // If it's text or date, set docPlaceholder.value from phReq.value
+      else if ((type === "text" || type === "date") && value) {
+        docPlaceholder.value = value;
+      }
     }
 
-    const tempDir = path.join(__dirname, "../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-    const signatureId = uuidv4();
-    const imageFile = `${signatureId}.jpg`;
-    const tempFilePath = path.join(tempDir, imageFile);
-    fs.writeFileSync(tempFilePath, req.file.buffer);
-    const imageBuffer = fs.readFileSync(tempFilePath);
-    const imagesFolder = `signatures/${documentKey}`;
-    const imageKey = `${imagesFolder}/${imageFile}`;
-    const imageUpload = await putObject(imageBuffer, imageKey, "image/jpeg");
-    if (imageUpload.status !== 200) {
-      return res
-        .status(500)
-        .json({ error: "Failed to upload signature image" });
-    }
-    const signatureImageUrl = imageUpload.url;
-    fs.unlinkSync(tempFilePath);
-    placeholder.value = signatureImageUrl;
-
+    // Save the updated senderUser
     await senderUser.save();
 
+    // 6. If all recipients have signed, generate the final PDF with overlays
     const allSigned = document.recipients.every((r) => r.status === "signed");
     if (allSigned) {
       const pdfDoc = await PDFDocument.create();
@@ -1069,47 +1108,68 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         const pageHeight = embeddedPage.height;
         const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-        // Draw the original page image.
+        // Draw the original page image
         page.drawImage(embeddedPage, {
           x: 0,
           y: 0,
           width: pageWidth,
           height: pageHeight,
         });
+
+        // Overlay placeholders
         for (const ph of document.placeholders) {
           if (ph.value) {
-            try {
-              const sigResponse = await axios.get(ph.value, {
-                responseType: "arraybuffer",
+            const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
+            const posY = (parseFloat(ph.position.y) / 100) * pageHeight;
+            const w = (parseFloat(ph.size.width) / 100) * pageWidth;
+            const h = (parseFloat(ph.size.height) / 100) * pageHeight;
+
+            if (ph.type === "signature") {
+              try {
+                const sigResponse = await axios.get(ph.value, {
+                  responseType: "arraybuffer",
+                });
+                const sigBytes = sigResponse.data;
+                const embeddedSig = await pdfDoc.embedJpg(sigBytes);
+                page.drawImage(embeddedSig, {
+                  x: posX,
+                  y: posY,
+                  width: w,
+                  height: h,
+                });
+              } catch (err) {
+                console.error(
+                  `Error overlaying signature for ${ph.email}:`,
+                  err
+                );
+              }
+            } else if (ph.type === "text" || ph.type === "date") {
+              // Draw text
+              page.drawText(ph.value, {
+                x: posX,
+                y: posY,
+                size: 12,
+                color: rgb(0, 0, 0),
               });
-              const sigBytes = sigResponse.data;
-              const embeddedSig = await pdfDoc.embedJpg(sigBytes);
-              const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
-              const posY = (parseFloat(ph.position.y) / 100) * pageHeight;
-              const width = (parseFloat(ph.size.width) / 100) * pageWidth;
-              const height = (parseFloat(ph.size.height) / 100) * pageHeight;
-              page.drawImage(embeddedSig, { x: posX, y: posY, width, height });
-            } catch (sigErr) {
-              console.error(
-                `Error overlaying signature for ${ph.email}:`,
-                sigErr
-              );
             }
           }
         }
       }
+
+      // Save the PDF and upload
       const pdfBytes = await pdfDoc.save();
       const pdfKey = `signedDocuments/${documentKey}.pdf`;
       const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
       if (pdfUpload.status !== 200) {
-        return res.status(500).json({ error: "Failed to upload signed PDF" });
+        return res
+          .status(500)
+          .json({ error: "Failed to upload final signed PDF" });
       }
       console.log("Final signed PDF URL:", pdfUpload.url);
     }
 
     res.status(200).json({
-      message: "Signature recorded and processed",
-      signatureImageUrl,
+      message: "Placeholders updated successfully",
     });
   } catch (error) {
     console.error("Error in agreeDocument:", error);
