@@ -3,6 +3,7 @@ const validator = require("validator");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const { type } = require("os");
 
 const userSchema = new mongoose.Schema({
   userName: {
@@ -62,6 +63,11 @@ const userSchema = new mongoose.Schema({
               default: "pending",
             },
             signedDocument: { type: String, default: null },
+            avatar: {
+              type: String,
+              required: true,
+            },
+            userName: { type: String, required: true },
           },
         ],
       },

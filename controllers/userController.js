@@ -1202,3 +1202,7 @@ exports.getEmails = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+exports.recentDocuments = asyncHandler(async (req, res, next) => {
+  const user = User.findById(req.user.id);
+});
