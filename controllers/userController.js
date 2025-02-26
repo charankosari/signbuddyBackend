@@ -893,7 +893,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       }
       const docUrl = docUpload.url;
 
-      const outputImagePath = path.join(tempDir, uniqueId);
+      const outputImagePath = path.join(tempFilePath, uniqueId);
       const popplerOptions = `-jpeg -r 300 -scale-to 842x595`;
       const popplerCommand = `pdftoppm ${popplerOptions} ${tempFilePath} ${outputImagePath}`;
 
@@ -906,12 +906,12 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
 
       // Upload images to S3
       const imageFiles = fs
-        .readdirSync(tempDir)
+        .readdirSync(tempFilePath)
         .filter((file) => file.startsWith(uniqueId));
       let imageUrls = [];
 
       for (const imageFile of imageFiles) {
-        const imagePath = path.join(tempDir, imageFile);
+        const imagePath = path.join(tempFilePath, imageFile);
         const imageBuffer = fs.readFileSync(imagePath);
         const imageKey = `${imagesFolder}/${imageFile}`;
 
