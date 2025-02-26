@@ -29,6 +29,7 @@
     "node-poppler": "^7.2.4",
     "nodemailer": "^6.9.13",
     "nodemon": "^3.1.0",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pdf-poppler": "^0.2.1",
     "pdf2pic": "^3.1.3",

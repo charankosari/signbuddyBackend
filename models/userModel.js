@@ -91,6 +91,7 @@ const userSchema = new mongoose.Schema({
               assignedTo: { type: String, required: true },
               email: { type: String, required: true },
               pageNumber: { type: Number, required: true },
+              value: { type: String },
             },
           ],
           default: [],

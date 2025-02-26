@@ -7,7 +7,7 @@ const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
-const { fromPath } = require("pdf2pic");
+const { PDFDocument } = require("pdf-lib");
 const fs = require("fs");
 const path = require("path");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -993,82 +993,126 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
 
 exports.agreeDocument = asyncHandler(async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized user" });
-    }
-
-    const senderEmail = req.body.senderEmail;
-    const documentKey = req.body.documentKey;
-    const file = req.file;
-
-    console.log("Sender Email:", senderEmail);
-    console.log("Document Key:", documentKey);
-    console.log("Uploaded File:", file);
-
-    if (!senderEmail || !documentKey) {
+    const { senderEmail, documentKey } = req.body;
+    if (!senderEmail || !documentKey || !req.file) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const sender = await User.findOne({ email: senderEmail });
-    if (!sender) {
-      return res.status(404).json({ error: "Sender not found" });
+    const senderUser = await User.findOne({ email: senderEmail });
+    if (!senderUser) {
+      return res.status(404).json({ error: "Sender user not found" });
     }
 
-    const document = sender.documentsSent.find(
+    const presentUser = await User.findById(req.user.id);
+    if (!presentUser) {
+      return res.status(404).json({ error: "Present user not found" });
+    }
+
+    const document = senderUser.documentsSent.find(
       (doc) => doc.documentKey === documentKey
     );
     if (!document) {
-      return res.status(404).json({ error: "Document not found" });
+      return res
+        .status(404)
+        .json({ error: "Document not found in sender user's documentsSent" });
     }
 
     const recipient = document.recipients.find(
-      (rec) => rec.email === user.email
+      (r) => r.email === presentUser.email
     );
     if (!recipient) {
       return res.status(404).json({ error: "Recipient not found in document" });
     }
+    recipient.status = "signed";
 
-    if (recipient.status === "signed") {
-      return res.status(400).json({ error: "Document already signed" });
+    const placeholder = document.placeholders.find(
+      (ph) => ph.email === presentUser.email
+    );
+    if (!placeholder) {
+      return res
+        .status(404)
+        .json({ error: "Placeholder not found for present user" });
     }
 
-    // Generate unique filename for storage
-    const uniqueId = uuidv4();
-    const originalname = file.originalname.trimStart();
-    const fileKey = `signedagreements/${uniqueId}-${originalname}`;
-    const fileBuffer = file.buffer;
-
-    // Upload file to S3 (or your storage service)
-    const docUpload = await putObject(fileBuffer, fileKey, file.mimetype);
-    if (docUpload.status !== 200) {
+    const tempDir = path.join(__dirname, "../temp");
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+    const signatureId = uuidv4();
+    const imageFile = `${signatureId}.jpg`;
+    const tempFilePath = path.join(tempDir, imageFile);
+    fs.writeFileSync(tempFilePath, req.file.buffer);
+    const imageBuffer = fs.readFileSync(tempFilePath);
+    const imagesFolder = `signatures/${documentKey}`;
+    const imageKey = `${imagesFolder}/${imageFile}`;
+    const imageUpload = await putObject(imageBuffer, imageKey, "image/jpeg");
+    if (imageUpload.status !== 200) {
       return res
         .status(500)
-        .json({ error: "Failed to upload signed document" });
+        .json({ error: "Failed to upload signature image" });
+    }
+    const signatureImageUrl = imageUpload.url;
+    fs.unlinkSync(tempFilePath);
+    placeholder.value = signatureImageUrl;
+
+    await senderUser.save();
+
+    const allSigned = document.recipients.every((r) => r.status === "signed");
+    if (allSigned) {
+      const pdfDoc = await PDFDocument.create();
+
+      for (const pageImageUrl of document.ImageUrls) {
+        const pageResponse = await axios.get(pageImageUrl, {
+          responseType: "arraybuffer",
+        });
+        const pageImageBytes = pageResponse.data;
+        const embeddedPage = await pdfDoc.embedJpg(pageImageBytes);
+        const pageWidth = embeddedPage.width;
+        const pageHeight = embeddedPage.height;
+        const page = pdfDoc.addPage([pageWidth, pageHeight]);
+
+        // Draw the original page image.
+        page.drawImage(embeddedPage, {
+          x: 0,
+          y: 0,
+          width: pageWidth,
+          height: pageHeight,
+        });
+        for (const ph of document.placeholders) {
+          if (ph.value) {
+            try {
+              const sigResponse = await axios.get(ph.value, {
+                responseType: "arraybuffer",
+              });
+              const sigBytes = sigResponse.data;
+              const embeddedSig = await pdfDoc.embedJpg(sigBytes);
+              const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
+              const posY = (parseFloat(ph.position.y) / 100) * pageHeight;
+              const width = (parseFloat(ph.size.width) / 100) * pageWidth;
+              const height = (parseFloat(ph.size.height) / 100) * pageHeight;
+              page.drawImage(embeddedSig, { x: posX, y: posY, width, height });
+            } catch (sigErr) {
+              console.error(
+                `Error overlaying signature for ${ph.email}:`,
+                sigErr
+              );
+            }
+          }
+        }
+      }
+      const pdfBytes = await pdfDoc.save();
+      const pdfKey = `signedDocuments/${documentKey}.pdf`;
+      const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
+      if (pdfUpload.status !== 200) {
+        return res.status(500).json({ error: "Failed to upload signed PDF" });
+      }
+      console.log("Final signed PDF URL:", pdfUpload.url);
     }
 
-    const signedUrl = docUpload.url;
-
-    recipient.status = "signed";
-    recipient.signedDocument = signedUrl;
-    await sender.save();
-
-    user.agreements.push(signedUrl);
-    await user.save();
-    // Notify sender and signer via email
-    const subject = "Agreement Signed Notification";
-    const senderBody = `Hello,\n\nYour document (${documentKey}) has been signed by ${user.email}.\n\nYou can view the signed document here: ${signedUrl}\n\nRegards,\nSignBuddy Team`;
-    const signerBody = `Hello ${user.userName},\n\nYou have successfully signed the document (${documentKey}).\n\nYou can download the signed document here: ${signedUrl}\n\nThank you for using SignBuddy!`;
-
-    sendEmail(senderEmail, subject, senderBody);
-    sendEmail(user.email, subject, signerBody);
-
-    return res.status(200).json({
-      message: "Document signed successfully",
-      signedDocumentUrl: signedUrl,
+    res.status(200).json({
+      message: "Signature recorded and processed",
+      signatureImageUrl,
     });
   } catch (error) {
-    console.error("Error signing document:", error);
+    console.error("Error in agreeDocument:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
