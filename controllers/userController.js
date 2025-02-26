@@ -897,8 +897,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       // Convert PDF to images
       const outputImagePath = path.join(tempDir, uniqueId);
       await poppler.pdfToCairo(tempFilePath, outputImagePath, {
-        format: "jpeg",
-        resolution: 300,
+        resolutionXY: 300,
       });
 
       const imageFiles = fs
