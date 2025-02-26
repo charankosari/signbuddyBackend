@@ -1244,3 +1244,23 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
   });
   res.status(200).json({ recentDocuments: recentDocs });
 });
+
+exports.sendReminder = asyncHandler(async (req, res, next) => {
+  const user = User.findById(req.user.id);
+  if (!user) return res.status(404).json({ message: "User not found" });
+  try {
+    const { email, name, previewImageUrl, redirectUrl } = req.body;
+    const userName = name || "User";
+    const subject = "Reminder: Pending Document";
+
+    await sendEmail(
+      email,
+      subject,
+      emailBody(userName, previewImageUrl, redirectUrl, email)
+    );
+
+    res.status(200).json({ message: "Reminder sent successfully" });
+  } catch (error) {
+    next(error);
+  }
+});

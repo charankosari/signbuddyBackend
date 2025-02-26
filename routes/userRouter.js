@@ -17,6 +17,7 @@ const {
   getEmails,
   recentDocuments,
   addDraft,
+  sendReminder,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -36,6 +37,7 @@ router.route("/addtemplate").post(isAuthorized, addTemplate);
 router.route("/adddrafts").post(isAuthorized, addDraft);
 router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
 router.route("/sendagreement").post(isAuthorized, sendAgreement);
+router.route("/sendreminder").post(isAuthorized, sendReminder);
 router
   .route("/agreedocument")
   .post(isAuthorized, upload.single("file"), agreeDocument);
