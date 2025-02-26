@@ -1131,6 +1131,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
                 });
                 const sigBytes = sigResponse.data;
                 const embeddedSig = await pdfDoc.embedJpg(sigBytes);
+                console.log(embeddedPage, sigResponse, sigBytes);
                 page.drawImage(embeddedSig, {
                   x: posX,
                   y: posY,
