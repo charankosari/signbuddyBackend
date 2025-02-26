@@ -6,7 +6,7 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
-const pdfParse = require("pdf-parse");
+const pdfPoppler = require("pdf-poppler");
 const { fromPath } = require("pdf2pic");
 const fs = require("fs");
 const path = require("path");
@@ -883,9 +883,13 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       const fileKey = `agreements/${uniqueId}-${originalname}`;
       const imagesFolder = `images/${uniqueId}-${originalname}`;
 
-      const tempFilePath = path.join(__dirname, "../temp", `${uniqueId}.pdf`);
+      const tempDir = path.join(__dirname, "../temp");
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir); // Ensure temp directory exists
+      const tempFilePath = path.join(tempDir, `${uniqueId}.pdf`);
 
       fs.writeFileSync(tempFilePath, req.file.buffer);
+
+      // Upload document to S3
       const fileBuffer = fs.readFileSync(tempFilePath);
       const docUpload = await putObject(fileBuffer, fileKey, req.file.mimetype);
       if (docUpload.status !== 200) {
@@ -893,25 +897,26 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       }
       const docUrl = docUpload.url;
 
-      const outputImagePath = path.join(tempFilePath, uniqueId);
-      const popplerOptions = `-jpeg -r 300 -scale-to 842x595`;
-      const popplerCommand = `pdftoppm ${popplerOptions} ${tempFilePath} ${outputImagePath}`;
+      // Convert PDF to images
+      const popplerOptions = {
+        format: "jpeg",
+        out_dir: tempDir,
+        out_prefix: uniqueId,
+        scale_to_x: 595, // Width of A4 in pixels at 72 DPI
+        scale_to_y: 842, // Height of A4 in pixels at 72 DPI
+        density: 300, // DPI
+      };
 
-      try {
-        await execPromise(popplerCommand);
-      } catch (convErr) {
-        console.error("Error during PDF-to-image conversion:", convErr);
-        throw convErr;
-      }
+      await pdfPoppler.convert(tempFilePath, popplerOptions);
 
-      // Upload images to S3
+      // Get generated image files
       const imageFiles = fs
-        .readdirSync(tempFilePath)
-        .filter((file) => file.startsWith(uniqueId));
-      let imageUrls = [];
+        .readdirSync(tempDir)
+        .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
 
+      let imageUrls = [];
       for (const imageFile of imageFiles) {
-        const imagePath = path.join(tempFilePath, imageFile);
+        const imagePath = path.join(tempDir, imageFile);
         const imageBuffer = fs.readFileSync(imagePath);
         const imageKey = `${imagesFolder}/${imageFile}`;
 
@@ -925,7 +930,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
         }
 
         imageUrls.push(imageUpload.url);
-        fs.unlinkSync(imagePath); // Delete temporary image file
+        fs.unlinkSync(imagePath); // Delete temporary image file after upload
       }
 
       fs.unlinkSync(tempFilePath);
