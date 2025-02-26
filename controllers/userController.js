@@ -6,7 +6,7 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
-const pdfPoppler = require("pdf-poppler");
+const { Poppler } = require("node-poppler");
 const { fromPath } = require("pdf2pic");
 const fs = require("fs");
 const path = require("path");
@@ -15,13 +15,10 @@ const multer = require("multer");
 const { putObject, deleteObject, getObject } = require("../utils/s3objects");
 const storage = multer.memoryStorage();
 const axios = require("axios");
-const { exec } = require("child_process");
-const util = require("util");
 const { v4: uuidv4 } = require("uuid");
-const { error } = require("console");
 const generateAgreement = require("../utils/grokAi");
 const PreUser = require("../models/preUsers");
-const execPromise = util.promisify(exec);
+const poppler = new Poppler();
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -898,18 +895,12 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       const docUrl = docUpload.url;
 
       // Convert PDF to images
-      const popplerOptions = {
-        format: "jpeg",
-        out_dir: tempDir,
-        out_prefix: uniqueId,
-        scale_to_x: 595, // Width of A4 in pixels at 72 DPI
-        scale_to_y: 842, // Height of A4 in pixels at 72 DPI
-        density: 300, // DPI
-      };
+      const outputImagePath = path.join(tempDir, uniqueId);
+      await poppler.pdfToCairo(tempFilePath, outputImagePath, {
+        jpeg: true,
+        resolutionXY: 300, // 300 DPI for better quality
+      });
 
-      await pdfPoppler.convert(tempFilePath, popplerOptions);
-
-      // Get generated image files
       const imageFiles = fs
         .readdirSync(tempDir)
         .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
