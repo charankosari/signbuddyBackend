@@ -894,13 +894,17 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       }
       const docUrl = docUpload.url;
 
-      // Convert PDF to images
       const outputImagePath = path.join(tempDir, uniqueId);
-      await poppler.pdfToCairo(tempFilePath, outputImagePath);
+      const options = {
+        pngFile: true,
+        resolution: 300,
+        singleFile: false,
+      };
+      await poppler.pdfToCairo(tempFilePath, outputImagePath, options);
 
       const imageFiles = fs
         .readdirSync(tempDir)
-        .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
+        .filter((file) => file.startsWith(uniqueId) && file.endsWith(".png"));
 
       let imageUrls = [];
       for (const imageFile of imageFiles) {
