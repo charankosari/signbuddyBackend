@@ -15,10 +15,13 @@ const multer = require("multer");
 const { putObject, deleteObject, getObject } = require("../utils/s3objects");
 const storage = multer.memoryStorage();
 const axios = require("axios");
+const { exec } = require("child_process");
+const util = require("util");
 const { v4: uuidv4 } = require("uuid");
 const { error } = require("console");
 const generateAgreement = require("../utils/grokAi");
 const PreUser = require("../models/preUsers");
+const execPromise = util.promisify(exec);
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -858,15 +861,17 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       if (!user) {
         return res.status(401).json({ error: "Unauthorized user" });
       }
-      if (
-        user.subscriptionType === "free" &&
-        user.documentsSent.length >= 3 &&
-        user.credits === 0
-      ) {
-        return res.status(403).json({
-          error: "Free subscription users can send a maximum of 3 documents.",
-        });
+      if (user.subscriptionType === "free" && user.documentsSent.length >= 3) {
+        if (user.credits >= 10) {
+          user.credits -= 10;
+        } else {
+          return res.status(403).json({
+            error:
+              "Free subscription users can send a maximum of 3 documents unless they have at least 10 credits.",
+          });
+        }
       }
+
       const emails = Object.values(JSON.parse(req.body.emails));
       const names = Object.values(JSON.parse(req.body.names));
       if (!emails.length || !names.length) {
@@ -888,48 +893,63 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       }
       const docUrl = docUpload.url;
 
-      const options = {
-        density: 1000, // Increase DPI for better clarity
-        saveFilename: uniqueId,
-        savePath: path.dirname(tempFilePath),
-        format: "jpeg",
-        quality: 500,
-        height: 842,
-        width: 595,
-      };
+      const outputImagePath = path.join(tempDir, uniqueId);
+      const popplerOptions = `-jpeg -r 300 -scale-to 842x595`;
+      const popplerCommand = `pdftoppm ${popplerOptions} ${tempFilePath} ${outputImagePath}`;
 
-      const convert = fromPath(tempFilePath, options);
-      let conversionResult;
       try {
-        conversionResult = await convert.bulk(-1);
-        console.log("Conversion result:", conversionResult);
+        await execPromise(popplerCommand);
       } catch (convErr) {
         console.error("Error during PDF-to-image conversion:", convErr);
         throw convErr;
       }
 
+      // Upload images to S3
+      const imageFiles = fs
+        .readdirSync(tempDir)
+        .filter((file) => file.startsWith(uniqueId));
       let imageUrls = [];
 
-      for (const page of conversionResult) {
-        const imagePath = page.path;
+      for (const imageFile of imageFiles) {
+        const imagePath = path.join(tempDir, imageFile);
         const imageBuffer = fs.readFileSync(imagePath);
-        const imageKey = `${imagesFolder}/${path.basename(imagePath)}`;
+        const imageKey = `${imagesFolder}/${imageFile}`;
 
         const imageUpload = await putObject(
           imageBuffer,
           imageKey,
           "image/jpeg"
         );
-
         if (imageUpload.status !== 200) {
           return res.status(500).json({ error: "Failed to upload images" });
         }
 
         imageUrls.push(imageUpload.url);
-        fs.unlinkSync(imagePath);
+        fs.unlinkSync(imagePath); // Delete temporary image file
       }
 
       fs.unlinkSync(tempFilePath);
+
+      // for (const page of conversionResult) {
+      //   const imagePath = page.path;
+      //   const imageBuffer = fs.readFileSync(imagePath);
+      //   const imageKey = `${imagesFolder}/${path.basename(imagePath)}`;
+
+      //   const imageUpload = await putObject(
+      //     imageBuffer,
+      //     imageKey,
+      //     "image/jpeg"
+      //   );
+
+      //   if (imageUpload.status !== 200) {
+      //     return res.status(500).json({ error: "Failed to upload images" });
+      //   }
+
+      //   imageUrls.push(imageUpload.url);
+      //   fs.unlinkSync(imagePath);
+      // }
+
+      // fs.unlinkSync(tempFilePath);
 
       const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
         docUrl
