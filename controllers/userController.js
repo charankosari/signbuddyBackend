@@ -903,7 +903,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
 
       const imageFiles = fs
         .readdirSync(tempDir)
-        .filter((file) => file.startsWith(uniqueId) && file.endsWith(".png"));
+        .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
 
       let imageUrls = [];
       for (const imageFile of imageFiles) {
