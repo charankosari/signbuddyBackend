@@ -889,7 +889,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       const docUrl = docUpload.url;
 
       const options = {
-        density: 72, // Increase DPI for better clarity
+        density: 10000, // Increase DPI for better clarity
         saveFilename: uniqueId,
         savePath: path.dirname(tempFilePath),
         format: "jpeg",
