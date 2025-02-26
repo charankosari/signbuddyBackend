@@ -7,7 +7,7 @@ const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
-const { PDFDocument } = require("pdf-lib");
+const { PDFDocument, rgb } = require("pdf-lib");
 const { axios } = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -1022,6 +1022,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     const document = senderUser.documentsSent.find(
       (doc) => doc.documentKey === documentKey
     );
+    console.log(document, senderUser.documentsSent);
     if (!document) {
       return res
         .status(404)
@@ -1037,13 +1038,8 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     }
     recipient.status = "signed";
 
-    // 5. For each placeholder in placeholdersFromReq, update the doc placeholder
-    //    if it matches by email + type. If it's a signature placeholder for the present user,
-    //    we can use req.file for the signature image.
     for (const phReq of placeholdersFromReq) {
       const { email, type, value } = phReq;
-
-      // Find matching placeholder in the document by email + type (or just by email if each user has only one placeholder)
       const docPlaceholder = document.placeholders.find(
         (p) => p.email === email && p.type === type
       );
@@ -1055,13 +1051,11 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         continue;
       }
 
-      // If it's a signature placeholder for the present user, we handle file upload
       if (type === "signature" && email === presentUser.email) {
         if (!req.file) {
           console.log("No file uploaded for signature placeholder");
           continue;
         }
-        // Upload the file to S3
         const tempDir = path.join(__dirname, "../temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
         const signatureId = uuidv4();
@@ -1099,11 +1093,16 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       const pdfDoc = await PDFDocument.create();
 
       for (const pageImageUrl of document.ImageUrls) {
-        const pageResponse = await axios.get(pageImageUrl, {
-          responseType: "arraybuffer",
-        });
-        const pageImageBytes = pageResponse.data;
-        const embeddedPage = await pdfDoc.embedJpg(pageImageBytes);
+        console.log(pageImageUrl, document.ImageUrls);
+        const response = await fetch(pageImageUrl);
+        if (!response.ok) {
+          throw new Error(
+            `Network response was not ok: ${response.statusText}`
+          );
+        }
+
+        const pageResponse = await response.arrayBuffer();
+        const embeddedPage = await pdfDoc.embedJpg(pageResponse);
         const pageWidth = embeddedPage.width;
         const pageHeight = embeddedPage.height;
         const page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -1121,11 +1120,12 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           if (ph.value) {
             const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
             const posY = (parseFloat(ph.position.y) / 100) * pageHeight;
-            const w = (parseFloat(ph.size.width) / 100) * pageWidth;
-            const h = (parseFloat(ph.size.height) / 100) * pageHeight;
+            const width = (parseFloat(ph.size.width) / 100) * pageWidth;
+            const height = (parseFloat(ph.size.height) / 100) * pageHeight;
 
             if (ph.type === "signature") {
               try {
+                // ph.value should be a valid S3 URL
                 const sigResponse = await axios.get(ph.value, {
                   responseType: "arraybuffer",
                 });
@@ -1134,8 +1134,8 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
                 page.drawImage(embeddedSig, {
                   x: posX,
                   y: posY,
-                  width: w,
-                  height: h,
+                  width,
+                  height,
                 });
               } catch (err) {
                 console.error(
