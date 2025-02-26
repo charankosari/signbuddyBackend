@@ -14,7 +14,6 @@ const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 const multer = require("multer");
 const { putObject, deleteObject, getObject } = require("../utils/s3objects");
 const storage = multer.memoryStorage();
-const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
 const generateAgreement = require("../utils/grokAi");
 const PreUser = require("../models/preUsers");
@@ -896,8 +895,8 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
 
       const outputImagePath = path.join(tempDir, uniqueId);
       const options = {
-        pngFile: true,
-        resolution: 300,
+        jpegFile: true,
+        resolutionXYAxis: 300,
         singleFile: false,
       };
       await poppler.pdfToCairo(tempFilePath, outputImagePath, options);
