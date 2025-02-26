@@ -968,6 +968,8 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
           status: "pending",
         })),
         ImageUrls: imageUrls,
+        avatar: user.avatar,
+        userName: user.userName,
       };
 
       const updatedUser = await User.findByIdAndUpdate(
