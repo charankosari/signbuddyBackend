@@ -1550,3 +1550,18 @@ exports.deleteDocument = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ message: "Document deleted successfully" });
 });
+
+exports.getCredits = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user.id)
+    .select("credits")
+    .select("+creditsHistory");
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  res.status(200).json({
+    credits: user.credits,
+    creditsHistory: user.creditsHistory,
+  });
+});

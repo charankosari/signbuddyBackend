@@ -20,6 +20,7 @@ const {
   addDraft,
   sendReminder,
   deleteDocument,
+  getCredits,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -52,4 +53,5 @@ router.route("/vieweddocument").post(isAuthorized, viewedDocument);
 router.route("/generatecontent").post(isAuthorized, createAgreement);
 router.route("/getEmails").post(getEmails);
 router.route("/getavatars").get(getAvatars);
+router.route("/getcredits").get(isAuthorized, getCredits);
 module.exports = router;

@@ -148,7 +148,10 @@ const userSchema = new mongoose.Schema({
     ],
     default: [],
   },
-  creditsHistory: [CreditHistorySchema],
+  creditsHistory: {
+    type: [CreditHistorySchema],
+    select: false,
+  },
 
   resetPasswordToken: String,
   resetPasswordExpire: Date,
