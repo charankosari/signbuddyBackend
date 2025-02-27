@@ -22,6 +22,16 @@ const poppler = new Poppler();
 const { getAvatarsList } = require("../utils/s3objects");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
+const { config } = require("dotenv");
+config({ path: "config/config.env" });
+// connection
+exports.s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -1413,7 +1423,8 @@ exports.deleteDocument = asyncHandler(async (req, res, next) => {
       Prefix: imagesPrefix,
     };
     const listCommand = new ListObjectsV2Command(listParams);
-    const listResponse = await S3Client.send(listCommand);
+    const listResponse = await this.s3Client.send(listCommand);
+
     if (listResponse.Contents && listResponse.Contents.length > 0) {
       for (const file of listResponse.Contents) {
         const imageDeleteResult = await deleteObject(file.Key);
