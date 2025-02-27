@@ -846,6 +846,10 @@ exports.addDraft = (req, res) => {
 };
 
 exports.deleteTemplate = async (req, res) => {
+  const user = User.findById(req.user.id);
+  if (!user) {
+    return next(new errorHandler("Login to make a template", 400));
+  }
   try {
     const { key } = req.body;
 
@@ -865,7 +869,102 @@ exports.deleteTemplate = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+exports.convertToImages = async (req) => {
+  const user = User.findById(req.user.id);
+  if (!user) {
+    return next(new errorHandler("Login to make a template", 400));
+  }
+  const uniqueId = uuidv4();
+  const originalname = req.file.originalname.trimStart();
+  const fileKey = `agreements/${uniqueId}-${originalname}`;
+  const imagesFolder = `images/${uniqueId}-${originalname}`;
 
+  // Ensure temporary directory exists
+  const tempDir = path.join(__dirname, "../temp");
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+  let pdfBuffer;
+  if (req.file.mimetype === "application/pdf") {
+    pdfBuffer = req.file.buffer;
+  } else if (
+    req.file.mimetype ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    // Convert DOCX to PDF using libreoffice-convert
+    pdfBuffer = await new Promise((resolve, reject) => {
+      convert.convert(req.file.buffer, ".pdf", undefined, (err, done) => {
+        if (err) return reject(err);
+        resolve(done);
+      });
+    });
+  } else {
+    throw new Error("Unsupported file type. Only PDF and DOCX are allowed.");
+  }
+
+  // Write the uploaded file to a temporary PDF file
+  const tempFilePath = path.join(tempDir, `${uniqueId}.pdf`);
+  fs.writeFileSync(tempFilePath, pdfBuffer);
+
+  // Upload the PDF document to S3
+  const fileBuffer = fs.readFileSync(tempFilePath);
+  const docUpload = await putObject(fileBuffer, fileKey, "application/pdf");
+  if (docUpload.status !== 200) {
+    throw new Error("Failed to upload document");
+  }
+  const docUrl = docUpload.url;
+
+  // Convert the PDF to images using poppler
+  const outputImagePath = path.join(tempDir, uniqueId);
+  const options = {
+    jpegFile: true,
+    resolutionXYAxis: 300,
+    singleFile: false,
+  };
+  await poppler.pdfToCairo(tempFilePath, outputImagePath, options);
+
+  // Get all generated JPG files for this document
+  const imageFiles = fs
+    .readdirSync(tempDir)
+    .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
+
+  let imageUrls = [];
+  for (const imageFile of imageFiles) {
+    const imagePath = path.join(tempDir, imageFile);
+    const imageBuffer = fs.readFileSync(imagePath);
+    const imageKey = `${imagesFolder}/${imageFile}`;
+
+    const imageUpload = await putObject(imageBuffer, imageKey, "image/jpeg");
+    if (imageUpload.status !== 200) {
+      throw new Error("Failed to upload images");
+    }
+    imageUrls.push(imageUpload.url);
+    fs.unlinkSync(imagePath); // Clean up the temporary image file
+  }
+  fs.unlinkSync(tempFilePath); // Remove the temporary PDF file
+  const date = new Date();
+  const newDocument = {
+    documentKey: fileKey,
+
+    ImageUrls: imageUrls,
+    documentName: originalname,
+    sentAt: date,
+  };
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user.id,
+    { $push: { documentsSent: newDocument } },
+    { new: true, runValidators: true }
+  );
+  console.log(updatedUser);
+  await user.save();
+  res.status(200).json({
+    message: "Converted successfully",
+    fileKey,
+    docUrl,
+    imageUrls,
+    previewImageUrl: imageUrls,
+    originalname,
+  });
+};
 exports.sendAgreement = asyncHandler(async (req, res, next) => {
   uploadDocs(req, res, async (err) => {
     if (err) {
