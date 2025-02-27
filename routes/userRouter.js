@@ -10,7 +10,7 @@ const {
   register,
   addTemplate,
   deleteTemplate,
-  sendAgreement,
+  sendAgreements,
   convertToImages,
   agreeDocument,
   viewedDocument,
@@ -38,7 +38,7 @@ router.route("/addDetails").post(isAuthorized, updateDetails);
 router.route("/addtemplate").post(isAuthorized, addTemplate);
 router.route("/adddrafts").post(isAuthorized, addDraft);
 router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
-router.route("/sendagreement").post(isAuthorized, sendAgreement);
+router.route("/sendagreement").post(isAuthorized, sendAgreements);
 router
   .route("/converttoimages")
   .post(isAuthorized, upload.single("file"), convertToImages);

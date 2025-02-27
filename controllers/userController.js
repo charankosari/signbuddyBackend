@@ -981,136 +981,85 @@ exports.convertToImages = async (req, res) => {
     originalname,
   });
 };
-exports.sendAgreement = asyncHandler(async (req, res, next) => {
-  uploadDocs(req, res, async (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
+exports.sendAgreements = asyncHandler(async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized user" });
     }
+    if (user.subscriptionType === "free" && user.documentsSent.length >= 3) {
+      if (user.credits >= 10) {
+        user.credits -= 10;
+      } else {
+        return res.status(403).json({
+          error:
+            "Free subscription users can send a maximum of 3 documents unless they have at least 10 credits.",
+        });
+      }
+    }
+    const emails = Object.values(JSON.parse(req.body.emails));
+    const names = Object.values(JSON.parse(req.body.names));
+    let placeholders;
     try {
-      const user = await User.findById(req.user.id);
-      if (!user) {
-        return res.status(401).json({ error: "Unauthorized user" });
-      }
-      if (user.subscriptionType === "free" && user.documentsSent.length >= 3) {
-        if (user.credits >= 10) {
-          user.credits -= 10;
-        } else {
-          return res.status(403).json({
-            error:
-              "Free subscription users can send a maximum of 3 documents unless they have at least 10 credits.",
-          });
-        }
-      }
-
-      const emails = Object.values(JSON.parse(req.body.emails));
-      const names = Object.values(JSON.parse(req.body.names));
-      let placeholders;
-      try {
-        placeholders = JSON.parse(req.body.placeholders);
-      } catch (error) {
-        return res.status(400).json({ error: "Invalid placeholders format" });
-      }
-
-      const uniqueId = uuidv4();
-      const originalname = req.file.originalname.trimStart();
-      const fileKey = `agreements/${uniqueId}-${originalname}`;
-      const imagesFolder = `images/${uniqueId}-${originalname}`;
-
-      const tempDir = path.join(__dirname, "../temp");
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir); // Ensure temp directory exists
-      const tempFilePath = path.join(tempDir, `${uniqueId}.pdf`);
-
-      fs.writeFileSync(tempFilePath, req.file.buffer);
-
-      // Upload document to S3
-      const fileBuffer = fs.readFileSync(tempFilePath);
-      const docUpload = await putObject(fileBuffer, fileKey, req.file.mimetype);
-      if (docUpload.status !== 200) {
-        return res.status(500).json({ error: "Failed to upload document" });
-      }
-      const docUrl = docUpload.url;
-
-      const outputImagePath = path.join(tempDir, uniqueId);
-      const options = {
-        jpegFile: true,
-        resolutionXYAxis: 300,
-        singleFile: false,
-      };
-      await poppler.pdfToCairo(tempFilePath, outputImagePath, options);
-
-      const imageFiles = fs
-        .readdirSync(tempDir)
-        .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
-
-      let imageUrls = [];
-      for (const imageFile of imageFiles) {
-        const imagePath = path.join(tempDir, imageFile);
-        const imageBuffer = fs.readFileSync(imagePath);
-        const imageKey = `${imagesFolder}/${imageFile}`;
-
-        const imageUpload = await putObject(
-          imageBuffer,
-          imageKey,
-          "image/jpeg"
-        );
-        if (imageUpload.status !== 200) {
-          return res.status(500).json({ error: "Failed to upload images" });
-        }
-
-        imageUrls.push(imageUpload.url);
-        fs.unlinkSync(imagePath); // Delete temporary image file after upload
-      }
-
-      fs.unlinkSync(tempFilePath);
-
-      const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
-        docUrl
-      )}`;
-      const subject = "Agreement Document for Signing";
-      const previewImageUrl = imageUrls[0];
-
-      emails.forEach((email, index) => {
-        sendEmail(
-          email,
-          subject,
-          emailBody(names[index], previewImageUrl, redirectUrl, email)
-        );
-      });
-      const date = new Date();
-      const newDocument = {
-        documentKey: fileKey,
-        recipients: emails.map((email) => ({
-          email,
-          status: "pending",
-          avatar: user.avatar,
-          userName: user.userName,
-          statusTime: date,
-        })),
-        ImageUrls: imageUrls,
-        documentName: originalname,
-        sentAt: date,
-        placeholders: placeholders,
-      };
-
-      const updatedUser = await User.findByIdAndUpdate(
-        req.user.id,
-        { $push: { documentsSent: newDocument } },
-        { new: true, runValidators: true }
-      );
-
-      await user.save();
-
-      res.status(200).json({
-        message: "Agreement sent successfully",
-        documentUrl: docUrl,
-        previewImageUrl: previewImageUrl,
-        allImageUrls: imageUrls,
-      });
+      placeholders = JSON.parse(req.body.placeholders);
     } catch (error) {
-      console.error("Error sending agreement:", error);
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(400).json({ error: "Invalid placeholders format" });
     }
-  });
+    const { fileKey, docUrl, imageUrls, previewImageUrl, originalname } =
+      await convertToImages(req);
+    const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
+      docUrl
+    )}`;
+    const subject = "Agreement Document for Signing";
+    emails.forEach((email, index) => {
+      sendEmail(
+        email,
+        subject,
+        emailBody(names[index] || "User", previewImageUrl, redirectUrl, email)
+      );
+    });
+    const date = new Date();
+    const recipients = await Promise.all(
+      emails.map(async (email, index) => {
+        const recipientUser = await User.findOne({ email });
+        return {
+          email,
+          userName: names[index] || email,
+          status: "pending",
+          statusTime: date,
+          avatar:
+            recipientUser && recipientUser.avatar
+              ? recipientUser.avatar
+              : user.avatar,
+        };
+      })
+    );
+    const newDocument = {
+      documentKey: req.body.fileKey,
+      documentName: originalname,
+      signedDocument: null,
+      sentAt: date,
+      recipients: recipients,
+      placeholders,
+    };
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $push: { documentsSent: newDocument } },
+      { new: true, runValidators: true }
+    );
+    console.log(updatedUser);
+
+    res.status(200).json({
+      message: "Agreement sent successfully",
+      documentUrl: docUrl,
+      previewImageUrl,
+      allImageUrls: imageUrls,
+    });
+  } catch (error) {
+    console.error("Error sending agreement:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 exports.agreeDocument = asyncHandler(async (req, res, next) => {
   try {
