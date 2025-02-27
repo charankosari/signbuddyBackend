@@ -1286,7 +1286,14 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
   if (!user) return res.status(404).json({ message: "User not found" });
 
   const recentDocs = user.documentsSent.map((doc) => {
-    const { documentKey, documentName, ImageUrls, sentAt, recipients } = doc;
+    const {
+      documentKey,
+      documentName,
+      ImageUrls,
+      sentAt,
+      recipients,
+      placeholders,
+    } = doc;
     const recipientDetails = recipients.map((r) => ({
       name: r.userName || r.email,
       email: r.email,
@@ -1305,6 +1312,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       timeAgo: formatTimeAgo(new Date(sentAt)),
       recipients: recipientDetails,
       signedDocument,
+      placeholders: placeholders,
     };
   });
   res.status(200).json({ recentDocuments: recentDocs });
