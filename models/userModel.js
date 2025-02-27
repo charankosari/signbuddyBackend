@@ -54,7 +54,6 @@ const userSchema = new mongoose.Schema({
       {
         documentKey: { type: String, required: true },
         documentName: { type: String },
-        sentAt: { type: Date, default: Date.now },
         ImageUrls: { type: [String], default: [] },
         recipients: [
           {
@@ -69,6 +68,7 @@ const userSchema = new mongoose.Schema({
               type: String,
             },
             userName: { type: String },
+            statusTime: { type: Date, default: Date.now },
           },
         ],
         placeholders: {

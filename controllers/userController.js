@@ -955,6 +955,7 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
           status: "pending",
           avatar: user.avatar,
           userName: user.userName,
+          statusTime: date,
         })),
         ImageUrls: imageUrls,
         documentName: originalname,
@@ -1027,6 +1028,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       return res.status(404).json({ error: "Recipient not found in document" });
     }
     recipient.status = "signed";
+    recipient.statusTime = new Date();
 
     for (const phReq of placeholdersFromReq) {
       const { email, type, value } = phReq;
@@ -1185,6 +1187,7 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
     }
 
     recipient.status = "viewed";
+    recipient.statusTime = new Date();
     await sender.save();
     const subject = "viewed document";
     const body = `<h1>${user.userName} viewed document </h1>`;
@@ -1297,6 +1300,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     const recipientDetails = recipients.map((r) => ({
       name: r.userName || r.email,
       email: r.email,
+      time: `${formatTimeAgo(new Date(r.statusTime))} `,
     }));
     const recipientStatuses = recipients.map((r) => r.status);
     let status = "pending";
@@ -1309,7 +1313,6 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       documentName,
       documentUrl: ImageUrls,
       status,
-      timeAgo: formatTimeAgo(new Date(sentAt)),
       recipients: recipientDetails,
       signedDocument,
       placeholders: placeholders,
