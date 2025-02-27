@@ -20,6 +20,8 @@ const generateAgreement = require("../utils/grokAi");
 const PreUser = require("../models/preUsers");
 const poppler = new Poppler();
 const { getAvatarsList } = require("../utils/s3objects");
+const { S3Client } = require("@aws-sdk/client-s3");
+const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -65,6 +67,7 @@ const emailBody = (name, previewImageUrl, redirectUrl, email) => {
           <img src="[PROFILE_IMAGE_URL]" alt="Profile Picture" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 12px;" />
           <div style="display: flex; flex-direction: column; justify-content: center; height: 30px;alin-items:center">
             <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${name}</h2>
+            <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${email}</h2>
           </div>
         </div>
 
@@ -1410,7 +1413,7 @@ exports.deleteDocument = asyncHandler(async (req, res, next) => {
       Prefix: imagesPrefix,
     };
     const listCommand = new ListObjectsV2Command(listParams);
-    const listResponse = await s3Client.send(listCommand);
+    const listResponse = await S3Client.send(listCommand);
     if (listResponse.Contents && listResponse.Contents.length > 0) {
       for (const file of listResponse.Contents) {
         const imageDeleteResult = await deleteObject(file.Key);
