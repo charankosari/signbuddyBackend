@@ -8,7 +8,7 @@ const TempOTP = require("../models/TempModel");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
 const { PDFDocument, rgb } = require("pdf-lib");
-const { axios } = require("axios");
+const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -592,7 +592,6 @@ exports.sendOTP = asyncHandler(async (req, res, next) => {
   const subject = "Your OTP Code";
   const body = `<h1>Your OTP is: ${otp}</h1><p>Use this OTP to verify your account.</p>`;
   sendEmail(email, subject, body);
-  console.log(otp);
   res.status(200).json({ success: true, message: "OTP sent to email" });
 });
 
@@ -638,13 +637,8 @@ exports.login = asyncHandler(async (req, res, next) => {
     return res.status(400).json({ message: "User not found" });
   }
 
-  // Debugging Step: Print Passwords
-  console.log("Entered Password:", password);
-  console.log("Stored Hashed Password:", user.password);
-
   // Compare password using bcrypt
   const isMatch = await bcrypt.compare(password, user.password);
-  console.log("Password Match Result:", isMatch);
 
   if (!isMatch) {
     return res.status(400).json({ message: "Invalid credentials" });
@@ -887,7 +881,6 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
       } catch (error) {
         return res.status(400).json({ error: "Invalid placeholders format" });
       }
-      console.log(placeholders);
 
       const uniqueId = uuidv4();
       const originalname = req.file.originalname.trimStart();
@@ -975,8 +968,6 @@ exports.sendAgreement = asyncHandler(async (req, res, next) => {
         { new: true, runValidators: true }
       );
 
-      console.log("Updated user:", updatedUser);
-
       await user.save();
 
       res.status(200).json({
@@ -1022,7 +1013,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     const document = senderUser.documentsSent.find(
       (doc) => doc.documentKey === documentKey
     );
-    console.log(document, senderUser.documentsSent);
     if (!document) {
       return res
         .status(404)
@@ -1045,15 +1035,11 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       );
 
       if (!docPlaceholder) {
-        console.log(
-          `No matching doc placeholder found for ${email}, type=${type}`
-        );
         continue;
       }
 
       if (type === "signature" && email === presentUser.email) {
         if (!req.file) {
-          console.log("No file uploaded for signature placeholder");
           continue;
         }
         const tempDir = path.join(__dirname, "../temp");
@@ -1065,11 +1051,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         const imageBuffer = fs.readFileSync(tempFilePath);
         const imagesFolder = `signatures/${documentKey}`;
         const imageKey = `${imagesFolder}/${imageFile}`;
-        const imageUpload = await putObject(
-          imageBuffer,
-          imageKey,
-          "image/jpeg"
-        );
+        const imageUpload = await putObject(imageBuffer, imageKey, "image/png");
         if (imageUpload.status !== 200) {
           return res
             .status(500)
@@ -1093,16 +1075,10 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       const pdfDoc = await PDFDocument.create();
 
       for (const pageImageUrl of document.ImageUrls) {
-        console.log(pageImageUrl, document.ImageUrls);
-        const response = await fetch(pageImageUrl);
-        if (!response.ok) {
-          throw new Error(
-            `Network response was not ok: ${response.statusText}`
-          );
-        }
-
-        const pageResponse = await response.arrayBuffer();
-        const embeddedPage = await pdfDoc.embedJpg(pageResponse);
+        const response = await axios.get(pageImageUrl, {
+          responseType: "arraybuffer",
+        });
+        const embeddedPage = await pdfDoc.embedJpg(response.data);
         const pageWidth = embeddedPage.width;
         const pageHeight = embeddedPage.height;
         const page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -1125,13 +1101,13 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
 
             if (ph.type === "signature") {
               try {
-                // ph.value should be a valid S3 URL
+                console.log(ph.value);
                 const sigResponse = await axios.get(ph.value, {
                   responseType: "arraybuffer",
                 });
-                const sigBytes = sigResponse.data;
-                const embeddedSig = await pdfDoc.embedJpg(sigBytes);
-                console.log(embeddedPage, sigResponse, sigBytes);
+                // Choose embedPng or embedJpg based on your image format
+                const embeddedSig = await pdfDoc.embedPng(sigResponse.data);
+                // Removed the reference to undefined variable sigBytes
                 page.drawImage(embeddedSig, {
                   x: posX,
                   y: posY,
