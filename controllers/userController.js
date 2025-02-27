@@ -23,6 +23,7 @@ const { getAvatarsList } = require("../utils/s3objects");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
+const ConvertToPdf = require("docx2pdfmaker");
 const docxConverter = require("docx-pdf");
 config({ path: "config/config.env" });
 // connection
@@ -898,26 +899,22 @@ exports.convertToImages = async (req, res) => {
     req.file.mimetype ===
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
-    // For DOCX, write the DOCX to a temporary file.
     const tempDocxPath = path.join(tempDir, `${uniqueId}.docx`);
     fs.writeFileSync(tempDocxPath, req.file.buffer);
-    // Define a temporary PDF path for conversion.
     const tempConvertedPdfPath = path.join(
       tempDir,
       `${uniqueId}_converted.pdf`
     );
-
-    // Convert DOCX to PDF using docx-pdf.
     await new Promise((resolve, reject) => {
-      docxConverter(tempDocxPath, tempConvertedPdfPath, (err, result) => {
+      ConvertToPdf(tempDocxPath, tempConvertedPdfPath, (err, result) => {
         if (err) {
+          console.error("Error converting DOCX to PDF:", err);
           return reject(err);
         }
         resolve(result);
       });
     });
     pdfBuffer = fs.readFileSync(tempConvertedPdfPath);
-    // Clean up temporary DOCX and converted PDF files.
     fs.unlinkSync(tempDocxPath);
     fs.unlinkSync(tempConvertedPdfPath);
   } else {
@@ -1434,8 +1431,15 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     }));
     const recipientStatuses = recipients.map((r) => r.status);
     let status = "pending";
-    if (recipientStatuses.includes("viewed")) status = "viewed";
-    if (recipientStatuses.every((s) => s === "signed")) status = "completed";
+
+    if (!recipientStatuses || recipientStatuses.length === 0) {
+      // No recipient found
+      status = "draft";
+    } else if (recipientStatuses.every((s) => s === "signed")) {
+      status = "completed";
+    } else if (recipientStatuses.includes("viewed")) {
+      status = "viewed";
+    }
 
     return {
       documentKey,

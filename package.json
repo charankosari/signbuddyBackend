@@ -20,6 +20,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "docx-pdf": "^0.0.1",
+    "docx2pdfmaker": "^0.0.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fs-extra": "^11.3.0",
