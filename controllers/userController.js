@@ -1301,6 +1301,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       name: r.userName || r.email,
       email: r.email,
       time: `${formatTimeAgo(new Date(r.statusTime))} `,
+      avatar: r.avatar,
     }));
     const recipientStatuses = recipients.map((r) => r.status);
     let status = "pending";
