@@ -55,6 +55,7 @@ const userSchema = new mongoose.Schema({
         documentKey: { type: String, required: true },
         documentName: { type: String },
         ImageUrls: { type: [String], default: [] },
+        signedDocument: { type: String, default: null },
         recipients: [
           {
             email: { type: String, required: true },
@@ -63,7 +64,6 @@ const userSchema = new mongoose.Schema({
               enum: ["pending", "signed", "viewed", "rejected"],
               default: "pending",
             },
-            signedDocument: { type: String, default: null },
             avatar: {
               type: String,
             },

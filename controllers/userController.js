@@ -1146,9 +1146,10 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           .json({ error: "Failed to upload final signed PDF" });
       }
       console.log("Final signed PDF URL:", pdfUpload.url);
+      document.signedDocument = pdfUpload.url;
     }
-
-    res.status(200).json({
+    await senderUser.save();
+    document.res.status(200).json({
       message: "Placeholders updated successfully",
     });
   } catch (error) {
@@ -1353,4 +1354,59 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+exports.deleteDocument = asyncHandler(async (req, res, next) => {
+  const { key } = req.body;
+  if (!key) {
+    return res.status(400).json({ error: "Missing document key" });
+  }
+
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const docIndex = user.documentsSent.findIndex(
+    (doc) => doc.documentKey === key
+  );
+  if (docIndex === -1) {
+    return res.status(404).json({ error: "Document not found" });
+  }
+  const document = user.documentsSent[docIndex];
+
+  const mainDeleteResult = await deleteObject(key);
+  if (mainDeleteResult.status !== 204) {
+    return res.status(500).json({
+      error: "Failed to delete document file from S3",
+      details: mainDeleteResult,
+    });
+  }
+
+  const imagesPrefix = `images/${key}/`;
+  try {
+    const listParams = {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Prefix: imagesPrefix,
+    };
+    const listCommand = new ListObjectsV2Command(listParams);
+    const listResponse = await s3Client.send(listCommand);
+    if (listResponse.Contents && listResponse.Contents.length > 0) {
+      for (const file of listResponse.Contents) {
+        const imageDeleteResult = await deleteObject(file.Key);
+        if (imageDeleteResult.status !== 204) {
+          console.error(
+            `Failed to delete image ${file.Key}`,
+            imageDeleteResult
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error deleting images from S3:", error);
+    return res.status(500).json({ error: "Failed to delete images from S3" });
+  }
+
+  user.documentsSent.splice(docIndex, 1);
+  await user.save();
+
+  res.status(200).json({ message: "Document deleted successfully" });
 });
