@@ -23,6 +23,7 @@ const { getAvatarsList } = require("../utils/s3objects");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
+const docxConverter = require("docx-pdf");
 config({ path: "config/config.env" });
 // connection
 exports.s3Client = new S3Client({
@@ -869,7 +870,7 @@ exports.deleteTemplate = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-exports.convertToImages = async (req) => {
+exports.convertToImages = async (req, res) => {
   const user = User.findById(req.user.id);
   if (!user) {
     return next(new errorHandler("Login to make a template", 400));
@@ -884,27 +885,43 @@ exports.convertToImages = async (req) => {
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
   let pdfBuffer;
   if (req.file.mimetype === "application/pdf") {
+    // For PDF, use the file buffer directly.
     pdfBuffer = req.file.buffer;
   } else if (
     req.file.mimetype ===
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
-    // Convert DOCX to PDF using libreoffice-convert
-    pdfBuffer = await new Promise((resolve, reject) => {
-      convert.convert(req.file.buffer, ".pdf", undefined, (err, done) => {
-        if (err) return reject(err);
-        resolve(done);
+    // For DOCX, write the DOCX to a temporary file.
+    const tempDocxPath = path.join(tempDir, `${uniqueId}.docx`);
+    fs.writeFileSync(tempDocxPath, req.file.buffer);
+    // Define a temporary PDF path for conversion.
+    const tempConvertedPdfPath = path.join(
+      tempDir,
+      `${uniqueId}_converted.pdf`
+    );
+
+    // Convert DOCX to PDF using docx-pdf.
+    await new Promise((resolve, reject) => {
+      docxConverter(tempDocxPath, tempConvertedPdfPath, (err, result) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve(result);
       });
     });
+    pdfBuffer = fs.readFileSync(tempConvertedPdfPath);
+    // Clean up temporary DOCX and converted PDF files.
+    fs.unlinkSync(tempDocxPath);
+    fs.unlinkSync(tempConvertedPdfPath);
   } else {
     throw new Error("Unsupported file type. Only PDF and DOCX are allowed.");
   }
 
-  // Write the uploaded file to a temporary PDF file
+  // Write the PDF buffer to a temporary file.
   const tempFilePath = path.join(tempDir, `${uniqueId}.pdf`);
   fs.writeFileSync(tempFilePath, pdfBuffer);
 
-  // Upload the PDF document to S3
+  // Upload the PDF document to S3.
   const fileBuffer = fs.readFileSync(tempFilePath);
   const docUpload = await putObject(fileBuffer, fileKey, "application/pdf");
   if (docUpload.status !== 200) {
@@ -955,7 +972,6 @@ exports.convertToImages = async (req) => {
     { new: true, runValidators: true }
   );
   console.log(updatedUser);
-  await user.save();
   res.status(200).json({
     message: "Converted successfully",
     fileKey,
