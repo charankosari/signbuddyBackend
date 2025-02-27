@@ -19,6 +19,7 @@ const { v4: uuidv4 } = require("uuid");
 const generateAgreement = require("../utils/grokAi");
 const PreUser = require("../models/preUsers");
 const poppler = new Poppler();
+const { getAvatarsList } = require("../utils/s3objects");
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
@@ -1287,22 +1288,28 @@ exports.getEmails = async (req, res) => {
 exports.recentDocuments = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
-
+  let avatars = [];
+  try {
+    avatars = await getAvatarsList();
+  } catch (error) {
+    console.error("Error fetching avatars:", error);
+  }
   const recentDocs = user.documentsSent.map((doc) => {
-    const {
-      documentKey,
-      documentName,
-      ImageUrls,
-      sentAt,
-      recipients,
-      placeholders,
-    } = doc;
-    const recipientDetails = recipients.map((r) => ({
-      name: r.userName || r.email,
-      email: r.email,
-      time: `${formatTimeAgo(new Date(r.statusTime))} `,
-      avatar: r.avatar,
-    }));
+    const { documentKey, documentName, ImageUrls, recipients, placeholders } =
+      doc;
+    const recipientDetails = recipients.map((r) => {
+      const randomAvatar =
+        !r.avatar && avatars.length > 0
+          ? avatars[Math.floor(Math.random() * avatars.length)].url
+          : r.avatar;
+      return {
+        name: r.userName || r.email,
+        email: r.email,
+        updates: `${formatTimeAgo(new Date(r.statusTime))} `,
+        recipientsAvatar: randomAvatar,
+      };
+    });
+
     const recipientStatuses = recipients.map((r) => r.status);
     let status = "pending";
     if (recipientStatuses.includes("viewed")) status = "viewed";
@@ -1311,7 +1318,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       recipients.find((r) => r.signedDocument)?.signedDocument || null;
     return {
       documentKey,
-      documentName,
+      title: documentName,
       documentUrl: ImageUrls,
       status,
       recipients: recipientDetails,

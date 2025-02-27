@@ -167,3 +167,26 @@ exports.getAvatars = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch images" });
   }
 };
+
+exports.getAvatarsList = async (req, res) => {
+  const folderName = "avatars";
+  const prefix = folderName.endsWith("/") ? folderName : `${folderName}/`;
+  const bucketName = process.env.AWS_S3_BUCKET;
+  if (!bucketName) {
+    throw new Error("AWS_S3_BUCKET is not defined");
+  }
+  const params = {
+    Bucket: bucketName,
+    Prefix: prefix,
+  };
+  const command = new ListObjectsV2Command(params);
+  const data = await s3Client.send(command);
+  if (!data.Contents || data.Contents.length === 0) {
+    throw new Error("No images found in this folder");
+  }
+  const imageUrls = data.Contents.map((file) => ({
+    key: file.Key,
+    url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${file.Key}`,
+  }));
+  return imageUrls;
+};
