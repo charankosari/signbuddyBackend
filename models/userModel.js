@@ -5,6 +5,21 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { type } = require("os");
 
+const CreditHistorySchema = new mongoose.Schema({
+  thingUsed: {
+    type: String,
+    enum: ["ai", "documentSent"],
+    required: true,
+  },
+  creditsUsed: {
+    type: Number,
+    required: true,
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
+  },
+});
 const userSchema = new mongoose.Schema({
   userName: {
     type: String,
@@ -52,7 +67,7 @@ const userSchema = new mongoose.Schema({
   documentsSent: {
     type: [
       {
-        documentKey: { type: String, required: true },
+        documentKey: { type: String },
         documentName: { type: String },
         ImageUrls: { type: [String], default: [] },
         signedDocument: { type: String, default: null },
@@ -133,6 +148,7 @@ const userSchema = new mongoose.Schema({
     ],
     default: [],
   },
+  creditsHistory: [CreditHistorySchema],
 
   resetPasswordToken: String,
   resetPasswordExpire: Date,

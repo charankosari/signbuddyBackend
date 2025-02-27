@@ -58,10 +58,17 @@ const uploadDocs = multer({
     }
   },
 }).single("file");
-const emailBody = (name, previewImageUrl, redirectUrl, email) => {
+const emailBody = (
+  senderName,
+  avatar,
+  senderEmail,
+  previewImageUrl,
+  redirectUrl,
+  name
+) => {
   return `
   <!DOCTYPE html>
-<html lang="en">
+<html lang="en">3
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -75,10 +82,10 @@ const emailBody = (name, previewImageUrl, redirectUrl, email) => {
 
       <div style="padding: 30px; margin: 30px; background-color: #000000; border: 1px solid #333333; color: #ffffff;">
         <div style="display: flex; align-items: flex-start; margin-bottom: 20px;">
-          <img src="[PROFILE_IMAGE_URL]" alt="Profile Picture" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 12px;" />
+          <img src=${avatar} alt="Profile Picture" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 12px;" />
           <div style="display: flex; flex-direction: column; justify-content: center; height: 30px;alin-items:center">
-            <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${name}</h2>
-            <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${email}</h2>
+            <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${senderName}</h2>
+            <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${senderEmail}</h2>
           </div>
         </div>
 
@@ -984,6 +991,7 @@ exports.convertToImages = async (req, res) => {
 exports.sendAgreements = asyncHandler(async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
+
     if (!user) {
       return res.status(401).json({ error: "Unauthorized user" });
     }
@@ -997,27 +1005,51 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         });
       }
     }
-    const emails = Object.values(JSON.parse(req.body.emails));
-    const names = Object.values(JSON.parse(req.body.names));
+
+    // Ensure required fields are provided and parse if necessary
+    if (!req.body.emails || !req.body.names) {
+      return res.status(400).json({ error: "Emails and names are required" });
+    }
+    const previewImageUrl = req.body.previewImageUrl;
+    const fileKey = req.body.fileKey;
+    const emails =
+      typeof req.body.emails === "string"
+        ? Object.values(JSON.parse(req.body.emails))
+        : Object.values(req.body.emails);
+    const names =
+      typeof req.body.names === "string"
+        ? Object.values(JSON.parse(req.body.names))
+        : Object.values(req.body.names);
     let placeholders;
     try {
-      placeholders = JSON.parse(req.body.placeholders);
+      placeholders =
+        typeof req.body.placeholders === "string"
+          ? JSON.parse(req.body.placeholders)
+          : req.body.placeholders;
     } catch (error) {
       return res.status(400).json({ error: "Invalid placeholders format" });
     }
-    const { fileKey, docUrl, imageUrls, previewImageUrl, originalname } =
-      await convertToImages(req);
+
     const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
-      docUrl
+      fileKey
     )}`;
     const subject = "Agreement Document for Signing";
+
     emails.forEach((email, index) => {
       sendEmail(
         email,
         subject,
-        emailBody(names[index] || "User", previewImageUrl, redirectUrl, email)
+        emailBody(
+          user.name,
+          user.avatar,
+          user.email,
+          previewImageUrl,
+          redirectUrl,
+          names[index]
+        )
       );
     });
+
     const date = new Date();
     const recipients = await Promise.all(
       emails.map(async (email, index) => {
@@ -1028,31 +1060,31 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
           status: "pending",
           statusTime: date,
           avatar:
-            recipientUser && recipientUser.avatar
-              ? recipientUser.avatar
-              : user.avatar,
+            recipientUser && recipientUser.avatar ? recipientUser.avatar : null,
         };
       })
     );
-    const newDocument = {
-      documentKey: req.body.fileKey,
-      documentName: originalname,
+
+    const docIndex = user.documentsSent.findIndex(
+      (doc) => doc.documentKey === req.body.fileKey
+    );
+
+    user.documentsSent[docIndex] = {
+      ...user.documentsSent[docIndex],
       signedDocument: null,
       sentAt: date,
       recipients: recipients,
-      placeholders,
+      placeholders: placeholders,
     };
-
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { $push: { documentsSent: newDocument } },
-      { new: true, runValidators: true }
-    );
-    console.log(updatedUser);
+    user.creditsHistory.push({
+      thingUsed: "documentSent",
+      creditsUsed: 10,
+      timestamp: new Date(),
+    });
+    await user.save();
 
     res.status(200).json({
       message: "Agreement sent successfully",
-      documentUrl: docUrl,
       previewImageUrl,
       allImageUrls: imageUrls,
     });
@@ -1061,6 +1093,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 exports.agreeDocument = asyncHandler(async (req, res, next) => {
   try {
     const { senderEmail, documentKey } = req.body;
@@ -1445,7 +1478,14 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
       await sendEmail(
         email,
         subject,
-        emailBody(userName, previewImageUrl, redirectUrl, email)
+        emailBody(
+          user.name,
+          user.avatar,
+          user.email,
+          previewImageUrl,
+          redirectUrl,
+          userName
+        )
       );
     }
 
