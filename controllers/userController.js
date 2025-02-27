@@ -1297,8 +1297,14 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
   }
 
   const recentDocs = user.documentsSent.map((doc) => {
-    const { documentKey, documentName, ImageUrls, recipients, placeholders } =
-      doc;
+    const {
+      documentKey,
+      documentName,
+      ImageUrls,
+      recipients,
+      placeholders,
+      signedDocument,
+    } = doc;
     const recipientDetails = recipients.map((r) => {
       const randomAvatar =
         !r.avatar && avatars.length > 0
@@ -1320,8 +1326,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     let status = "pending";
     if (recipientStatuses.includes("viewed")) status = "viewed";
     if (recipientStatuses.every((s) => s === "signed")) status = "completed";
-    const signedDocument =
-      recipients.find((r) => r.signedDocument)?.signedDocument || null;
+
     return {
       documentKey,
       title: documentName,
