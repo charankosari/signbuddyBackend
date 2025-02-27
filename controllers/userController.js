@@ -1294,6 +1294,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
   } catch (error) {
     console.error("Error fetching avatars:", error);
   }
+
   const recentDocs = user.documentsSent.map((doc) => {
     const { documentKey, documentName, ImageUrls, recipients, placeholders } =
       doc;
@@ -1309,7 +1310,11 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
         recipientsAvatar: randomAvatar,
       };
     });
-
+    const draftsList = user.drafts.map((draft) => ({
+      name: draft.fileKey,
+      url: draft.fileUrl,
+      time: formatTimeAgo(new Date(draft.uploadedAt)),
+    }));
     const recipientStatuses = recipients.map((r) => r.status);
     let status = "pending";
     if (recipientStatuses.includes("viewed")) status = "viewed";
@@ -1324,6 +1329,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       recipients: recipientDetails,
       signedDocument,
       placeholders: placeholders,
+      drafts: draftsList,
     };
   });
   res.status(200).json({ recentDocuments: recentDocs });
