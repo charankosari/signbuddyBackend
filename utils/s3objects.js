@@ -190,3 +190,29 @@ exports.getAvatarsList = async (req, res) => {
   }));
   return imageUrls;
 };
+
+exports.UploadDocx = async (file) => {
+  // Validate the file object
+  if (!file || !file.buffer) {
+    throw new Error("No file provided");
+  }
+
+  const fileContent = file.buffer;
+  const fileName = file.originalname;
+
+  const params = {
+    Bucket: process.env.AWS_S3_BUCKET,
+    Key: fileName,
+    Body: fileContent,
+    ContentType:
+      file.mimetype ||
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  };
+
+  const command = new PutObjectCommand(params);
+  await s3Client.send(command);
+
+  const url = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${params.Key}`;
+
+  return url;
+};

@@ -11,7 +11,7 @@ const {
   addTemplate,
   deleteTemplate,
   sendAgreements,
-  convertToImages,
+  // convertToImages,
   agreeDocument,
   viewedDocument,
   createAgreement,
@@ -21,15 +21,12 @@ const {
   sendReminder,
   deleteDocument,
   getCredits,
-  convertIntoImages,
-  ConvertToPdf,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 const { getAvatars } = require("../utils/s3objects");
 const { isAuthorized, roleAuthorize } = require("../middleware/auth");
-
 router.route("/verifyemail").post(sendOTP);
 router.route("/register").post(register);
 router.route("/login").post(login);
@@ -42,16 +39,15 @@ router.route("/addtemplate").post(isAuthorized, addTemplate);
 router.route("/adddrafts").post(isAuthorized, addDraft);
 router.route("/deletetemplate").post(isAuthorized, deleteTemplate);
 router.route("/sendagreement").post(isAuthorized, sendAgreements);
-router
-  .route("/converttoimages")
-  .post(isAuthorized, upload.single("file"), convertToImages);
+// router
+//   .route("/converttoimages")
+//   .post(isAuthorized, upload.single("file"), convertToImages);
 router.route("/sendreminder").post(isAuthorized, sendReminder);
 router.route("/deleteagreement").delete(isAuthorized, deleteDocument);
 router
   .route("/agreedocument")
   .post(isAuthorized, upload.single("file"), agreeDocument);
 
-router.route("/something").post(upload.single("file"), ConvertToPdf);
 router.route("/vieweddocument").post(isAuthorized, viewedDocument);
 router.route("/generatecontent").post(isAuthorized, createAgreement);
 router.route("/getEmails").post(getEmails);
