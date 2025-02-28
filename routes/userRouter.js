@@ -21,6 +21,8 @@ const {
   sendReminder,
   deleteDocument,
   getCredits,
+  convertIntoImages,
+  ConvertToPdf,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -49,6 +51,7 @@ router
   .route("/agreedocument")
   .post(isAuthorized, upload.single("file"), agreeDocument);
 
+router.route("/something").post(upload.single("file"), ConvertToPdf);
 router.route("/vieweddocument").post(isAuthorized, viewedDocument);
 router.route("/generatecontent").post(isAuthorized, createAgreement);
 router.route("/getEmails").post(getEmails);

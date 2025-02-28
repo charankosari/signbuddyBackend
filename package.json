@@ -13,6 +13,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",
     "@aws-sdk/client-ses": "^3.750.0",
+    "@pdftron/pdfnet-node": "^11.3.0",
+    "@pspdfkit/nodejs": "^0.0.7",
     "axios": "^1.8.1",
     "axis": "^1.0.0",
     "bcrypt": "^5.1.1",
@@ -25,7 +27,7 @@
     "express": "^4.19.2",
     "fs-extra": "^11.3.0",
     "jsonwebtoken": "^9.0.2",
-    "libreoffice-convert": "^1.6.0",
+    "libreoffice-convert": "^1.6.1",
     "mongoose": "^8.3.1",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",

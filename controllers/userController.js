@@ -23,8 +23,9 @@ const { getAvatarsList } = require("../utils/s3objects");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
-const ConvertToPdf = require("docx2pdfmaker");
+const { load } = require("@pspdfkit/nodejs");
 const docxConverter = require("docx-pdf");
+const libre = require("libreoffice-convert");
 config({ path: "config/config.env" });
 // connection
 exports.s3Client = new S3Client({
@@ -878,11 +879,13 @@ exports.deleteTemplate = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-exports.convertToImages = async (req, res) => {
-  const user = User.findById(req.user.id);
+exports.convertToImages = asyncHandler(async (req, res, next) => {
+  // Ensure the user is logged in.
+  const user = await User.findById(req.user.id);
   if (!user) {
     return next(new errorHandler("Login to make a template", 400));
   }
+
   const uniqueId = uuidv4();
   const originalname = req.file.originalname.trimStart();
   const fileKey = `agreements/${uniqueId}-${originalname}`;
@@ -891,6 +894,7 @@ exports.convertToImages = async (req, res) => {
   // Ensure temporary directory exists
   const tempDir = path.join(__dirname, "../temp");
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
   let pdfBuffer;
   if (req.file.mimetype === "application/pdf") {
     // For PDF, use the file buffer directly.
@@ -899,14 +903,9 @@ exports.convertToImages = async (req, res) => {
     req.file.mimetype ===
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
-    const tempDocxPath = path.join(tempDir, `${uniqueId}.docx`);
-    fs.writeFileSync(tempDocxPath, req.file.buffer);
-    const tempConvertedPdfPath = path.join(
-      tempDir,
-      `${uniqueId}_converted.pdf`
-    );
-    await new Promise((resolve, reject) => {
-      ConvertToPdf(tempDocxPath, tempConvertedPdfPath, (err, result) => {
+    // For DOCX, convert the buffer to PDF using libreoffice-convert.
+    pdfBuffer = await new Promise((resolve, reject) => {
+      libre.convert(req.file.buffer, ".pdf", undefined, (err, result) => {
         if (err) {
           console.error("Error converting DOCX to PDF:", err);
           return reject(err);
@@ -914,9 +913,6 @@ exports.convertToImages = async (req, res) => {
         resolve(result);
       });
     });
-    pdfBuffer = fs.readFileSync(tempConvertedPdfPath);
-    fs.unlinkSync(tempDocxPath);
-    fs.unlinkSync(tempConvertedPdfPath);
   } else {
     throw new Error("Unsupported file type. Only PDF and DOCX are allowed.");
   }
@@ -927,22 +923,33 @@ exports.convertToImages = async (req, res) => {
 
   // Upload the PDF document to S3.
   const fileBuffer = fs.readFileSync(tempFilePath);
-  const docUpload = await putObject(fileBuffer, fileKey, "application/pdf");
+  let mimetypeForUpload =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (req.file.mimetype === "application/pdf") {
+    mimetypeForUpload = "application/pdf";
+  }
+  const docUpload = await putObject(fileBuffer, fileKey, mimetypeForUpload);
   if (docUpload.status !== 200) {
     throw new Error("Failed to upload document");
   }
   const docUrl = docUpload.url;
 
-  // Convert the PDF to images using poppler
+  // Convert the PDF to images using Poppler.
+  // Define an output folder for the images.
   const outputImagePath = path.join(tempDir, uniqueId);
   const options = {
     jpegFile: true,
     resolutionXYAxis: 300,
     singleFile: false,
   };
+
+  // Ensure the output folder exists.
+  if (!fs.existsSync(outputImagePath)) fs.mkdirSync(outputImagePath);
+
+  // Convert PDF pages to JPEG images.
   await poppler.pdfToCairo(tempFilePath, outputImagePath, options);
 
-  // Get all generated JPG files for this document
+  // Read all generated JPG files in the temp directory that match the uniqueId.
   const imageFiles = fs
     .readdirSync(tempDir)
     .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
@@ -958,13 +965,20 @@ exports.convertToImages = async (req, res) => {
       throw new Error("Failed to upload images");
     }
     imageUrls.push(imageUpload.url);
-    fs.unlinkSync(imagePath); // Clean up the temporary image file
+    fs.unlinkSync(imagePath); // Clean up the temporary image file.
   }
-  fs.unlinkSync(tempFilePath); // Remove the temporary PDF file
+
+  // Remove the temporary PDF file.
+  fs.unlinkSync(tempFilePath);
+
+  // Remove the output images folder if it's empty (optional cleanup).
+  if (fs.existsSync(outputImagePath)) {
+    fs.rmdirSync(outputImagePath, { recursive: true });
+  }
+
   const date = new Date();
   const newDocument = {
     documentKey: fileKey,
-
     ImageUrls: imageUrls,
     documentName: originalname,
     sentAt: date,
@@ -976,6 +990,7 @@ exports.convertToImages = async (req, res) => {
     { new: true, runValidators: true }
   );
   console.log(updatedUser);
+
   res.status(200).json({
     message: "Converted successfully",
     fileKey,
@@ -984,7 +999,7 @@ exports.convertToImages = async (req, res) => {
     previewImageUrl: imageUrls,
     originalname,
   });
-};
+});
 exports.sendAgreements = asyncHandler(async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
@@ -1568,4 +1583,41 @@ exports.getCredits = asyncHandler(async (req, res, next) => {
     credits: user.credits,
     creditsHistory: user.creditsHistory,
   });
+});
+exports.ConvertToPdf = asyncHandler(async (req, res, next) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "No file provided" });
+  }
+
+  try {
+    // Specify the desired output extension.
+    const ext = ".pdf";
+
+    // The uploaded file buffer from Multer.
+    const fileBuffer = req.file.buffer;
+
+    // Use libreoffice-convert to convert the DOCX file.
+    // The third parameter is options (set to undefined here).
+    libre.convert(fileBuffer, ext, undefined, (err, pdfBuffer) => {
+      if (err) {
+        console.error("Error converting DOCX to PDF:", err);
+        return res.status(500).json({ error: "Error converting DOCX to PDF" });
+      }
+
+      // Build the output file path using the original filename.
+      const fileName = path.parse(req.file.originalname).name;
+      const outputPath = path.join(__dirname, "../temp", `${fileName}${ext}`);
+
+      // Write the converted PDF buffer to the output file.
+      fs.writeFileSync(outputPath, pdfBuffer);
+
+      // Respond with the output file path.
+      res
+        .status(200)
+        .json({ message: "File converted successfully", file: outputPath });
+    });
+  } catch (error) {
+    console.error("Conversion error:", error);
+    next(error);
+  }
 });
