@@ -629,10 +629,12 @@ exports.register = asyncHandler(async (req, res, next) => {
   if (!email || !otp || !password) {
     return next(new errorHandler("Email, OTP, and Password are required", 400));
   }
+
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     return next(new errorHandler("Email already registered", 400));
   }
+
   if (!passwordRegex.test(password)) {
     return next(
       new errorHandler(
@@ -641,19 +643,53 @@ exports.register = asyncHandler(async (req, res, next) => {
       )
     );
   }
+
   const tempOTP = await TempOTP.findOne({ email });
   if (!tempOTP) {
     return next(new errorHandler("OTP expired or email not found", 400));
   }
+
   const matchOtp = await bcrypt.compare(String(otp), tempOTP.otp);
   if (!matchOtp) {
     return next(new errorHandler("Invalid OTP", 400));
   }
+
+  // Create the user
   const user = await User.create({ email, password });
 
+  // Check if the email exists in PreUser. If so, assign 100 credits.
+  const preUser = await PreUser.findOne({ email });
+  let message = "Registration successful";
+  if (preUser) {
+    user.credits = 100;
+    message =
+      "Registration successful. You have been rewarded with 100 credits.";
+  }
+
+  // Check if this email exists in SendUsersWithNoAccount.
+  const sendUserRecord = await SendUsersWithNoAccount.findOne({ email });
+  if (sendUserRecord) {
+    // Merge incoming agreements from sendUserRecord to user's incomingAgreements.
+    if (
+      sendUserRecord.incomingAgreements &&
+      sendUserRecord.incomingAgreements.length > 0
+    ) {
+      user.incomingAgreements = user.incomingAgreements.concat(
+        sendUserRecord.incomingAgreements
+      );
+    }
+    // Delete the record from SendUsersWithNoAccount.
+    await SendUsersWithNoAccount.deleteOne({ email });
+  }
+
+  // Remove the used OTP
   await TempOTP.deleteOne({ email });
+
+  // Save the updated user with credits and incoming agreements.
+  await user.save();
+
   res.status(201);
-  sendJwt(user, 200, "Registration successful", res);
+  sendJwt(user, 200, message, res);
 });
 
 //user login
