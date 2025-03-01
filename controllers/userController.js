@@ -29,6 +29,7 @@ const { getAvatarsList } = require("../utils/s3objects");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
+const SendUsersWithNoAccount = require("../models/SendUsersWithNoAccount");
 
 config({ path: "config/config.env" });
 // connection
@@ -1001,111 +1002,6 @@ exports.deleteTemplate = async (req, res) => {
 //     originalname,
 //   });
 // });
-exports.sendAgreements = asyncHandler(async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized user" });
-    }
-    if (user.subscriptionType === "free" && user.documentsSent.length >= 3) {
-      if (user.credits >= 10) {
-        user.credits -= 10;
-      } else {
-        return res.status(403).json({
-          error:
-            "Free subscription users can send a maximum of 3 documents unless they have at least 10 credits.",
-        });
-      }
-    }
-
-    // Ensure required fields are provided and parse if necessary
-    if (!req.body.emails || !req.body.names) {
-      return res.status(400).json({ error: "Emails and names are required" });
-    }
-    const previewImageUrl = req.body.previewImageUrl;
-    const fileKey = req.body.fileKey;
-    const emails =
-      typeof req.body.emails === "string"
-        ? Object.values(JSON.parse(req.body.emails))
-        : Object.values(req.body.emails);
-    const names =
-      typeof req.body.names === "string"
-        ? Object.values(JSON.parse(req.body.names))
-        : Object.values(req.body.names);
-    let placeholders;
-    try {
-      placeholders =
-        typeof req.body.placeholders === "string"
-          ? JSON.parse(req.body.placeholders)
-          : req.body.placeholders;
-    } catch (error) {
-      return res.status(400).json({ error: "Invalid placeholders format" });
-    }
-
-    const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
-      fileKey
-    )}`;
-    const subject = "Agreement Document for Signing";
-
-    emails.forEach((email, index) => {
-      sendEmail(
-        email,
-        subject,
-        emailBody(
-          user.name,
-          user.avatar,
-          user.email,
-          previewImageUrl,
-          redirectUrl,
-          names[index]
-        )
-      );
-    });
-
-    const date = new Date();
-    const recipients = await Promise.all(
-      emails.map(async (email, index) => {
-        const recipientUser = await User.findOne({ email });
-        return {
-          email,
-          userName: names[index] || email,
-          status: "pending",
-          statusTime: date,
-          avatar:
-            recipientUser && recipientUser.avatar ? recipientUser.avatar : null,
-        };
-      })
-    );
-
-    const docIndex = user.documentsSent.findIndex(
-      (doc) => doc.documentKey === req.body.fileKey
-    );
-
-    user.documentsSent[docIndex] = {
-      ...user.documentsSent[docIndex],
-      signedDocument: null,
-      sentAt: date,
-      recipients: recipients,
-      placeholders: placeholders,
-    };
-    user.creditsHistory.push({
-      thingUsed: "documentSent",
-      creditsUsed: 10,
-      timestamp: new Date(),
-    });
-    await user.save();
-
-    res.status(200).json({
-      message: "Agreement sent successfully",
-      previewImageUrl,
-      allImageUrls: imageUrls,
-    });
-  } catch (error) {
-    console.error("Error sending agreement:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
 
 exports.agreeDocument = asyncHandler(async (req, res, next) => {
   try {
@@ -1732,4 +1628,110 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
     previewImageUrl: imageUrls,
     originalName,
   });
+});
+
+exports.sendAgreements = asyncHandler(async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized user" });
+    }
+    if (user.subscriptionType === "free" && user.documentsSent.length >= 3) {
+      if (user.credits >= 10) {
+        user.credits -= 10;
+      } else {
+        return res.status(403).json({
+          error:
+            "Free subscription users can send a maximum of 3 documents unless they have at least 10 credits.",
+        });
+      }
+    }
+
+    // Ensure required fields are provided and parse if necessary
+    if (!req.body.emails || !req.body.names) {
+      return res.status(400).json({ error: "Emails and names are required" });
+    }
+    const previewImageUrl = req.body.previewImageUrl;
+    const fileKey = req.body.fileKey;
+    const emails =
+      typeof req.body.emails === "string"
+        ? Object.values(JSON.parse(req.body.emails))
+        : Object.values(req.body.emails);
+    const names =
+      typeof req.body.names === "string"
+        ? Object.values(JSON.parse(req.body.names))
+        : Object.values(req.body.names);
+    let placeholders;
+    try {
+      placeholders =
+        typeof req.body.placeholders === "string"
+          ? JSON.parse(req.body.placeholders)
+          : req.body.placeholders;
+    } catch (error) {
+      return res.status(400).json({ error: "Invalid placeholders format" });
+    }
+
+    const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
+      fileKey
+    )}`;
+    const subject = "Agreement Document for Signing";
+
+    emails.forEach((email, index) => {
+      sendEmail(
+        email,
+        subject,
+        emailBody(
+          user.name,
+          user.avatar,
+          user.email,
+          previewImageUrl,
+          redirectUrl,
+          names[index]
+        )
+      );
+    });
+
+    const date = new Date();
+    const recipients = await Promise.all(
+      emails.map(async (email, index) => {
+        const recipientUser = await User.findOne({ email });
+        return {
+          email,
+          userName: names[index] || email,
+          status: "pending",
+          statusTime: date,
+          avatar:
+            recipientUser && recipientUser.avatar ? recipientUser.avatar : null,
+        };
+      })
+    );
+
+    const docIndex = user.documentsSent.findIndex(
+      (doc) => doc.documentKey === req.body.fileKey
+    );
+
+    user.documentsSent[docIndex] = {
+      ...user.documentsSent[docIndex],
+      signedDocument: null,
+      sentAt: date,
+      recipients: recipients,
+      placeholders: placeholders,
+    };
+    user.creditsHistory.push({
+      thingUsed: "documentSent",
+      creditsUsed: 10,
+      timestamp: new Date(),
+    });
+    await user.save();
+
+    res.status(200).json({
+      message: "Agreement sent successfully",
+      previewImageUrl,
+      allImageUrls: imageUrls,
+    });
+  } catch (error) {
+    console.error("Error sending agreement:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });

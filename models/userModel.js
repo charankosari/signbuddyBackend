@@ -20,6 +20,19 @@ const CreditHistorySchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+const IncomingAgreementSchema = new mongoose.Schema({
+  agreementKey: { type: String, required: true },
+  senderEmail: { type: String, required: true },
+  imageUrls: { type: [String], default: [] },
+  placeholders: { type: Array, default: [] },
+  receivedAt: { type: Date, default: Date.now },
+  status: {
+    type: String,
+    enum: ["pending", "signed", "rejected"],
+    default: "pending",
+  },
+});
+
 const userSchema = new mongoose.Schema({
   userName: {
     type: String,
@@ -152,7 +165,11 @@ const userSchema = new mongoose.Schema({
     type: [CreditHistorySchema],
     select: false,
   },
-
+  incomingAgreements: {
+    type: [IncomingAgreementSchema],
+    default: [],
+    select: false,
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
 });
