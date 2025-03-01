@@ -1695,7 +1695,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         };
       })
     );
-
+    const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
     // Update sender's document entry.
     const docIndex = user.documentsSent.findIndex(
       (doc) => doc.documentKey === fileKey
@@ -1723,7 +1723,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       const agreementData = {
         agreementKey: fileKey,
         senderEmail: user.email,
-        imageUrls: req.body.allImageUrls || [], // or however you obtain the image URLs
+        imageUrls: d.ImageUrls || [], // or however you obtain the image URLs
         placeholders: placeholders,
         receivedAt: date,
       };
@@ -1759,7 +1759,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       message: "Agreement sent successfully",
       previewImageUrl,
       fileKey,
-      allImageUrls: req.body.allImageUrls,
+      allImageUrls: d.ImageUrls,
     });
   } catch (error) {
     console.error("Error sending agreement:", error);
