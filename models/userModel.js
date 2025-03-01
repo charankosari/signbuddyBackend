@@ -171,6 +171,7 @@ const userSchema = new mongoose.Schema({
     default: [],
     select: false,
   },
+  hashedOtp: { type: String, default: null, required: false },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
 });

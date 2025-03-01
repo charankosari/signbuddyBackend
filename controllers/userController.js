@@ -1797,3 +1797,80 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
     user: updatedUser,
   });
 });
+exports.deleteUser = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  await User.findByIdAndDelete(userId);
+
+  res.status(200).json({ message: "User deleted successfully" });
+});
+
+exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  const { username, email, avatar } = req.body;
+
+  if (!username && !email && !avatar) {
+    return res.status(400).json({
+      error:
+        "At least one field (username, email, or avatar) must be provided to update.",
+    });
+  }
+
+  const updateData = {};
+  if (username) updateData.userName = username;
+  if (avatar) updateData.avatar = avatar;
+
+  let updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (email) {
+    const user = await User.findById(userId);
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const hashedOtp = await bcrypt.hash(otp, 10);
+    user.hashedOtp = hashedOtp;
+    await user.save();
+    sendEmail(email, "Verify your new email", `Your OTP is: ${otp}`);
+    if (!username && !avatar) {
+      return res.status(200).json({
+        message:
+          "For email change, please verify the OTP sent to your new email.",
+      });
+    }
+  }
+  res.status(200).json({
+    message: "Profile updated successfully.",
+    user: updatedUser,
+  });
+});
+exports.verifyEmailUpdate = asyncHandler(async (req, res, next) => {
+  const { otp, email, newEmail } = req.body;
+  if (!otp) {
+    return res.status(400).json({ error: "OTP is required." });
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(404).json({ error: "User not found." });
+  }
+  if (!user.hashedOtp) {
+    return res.status(400).json({ error: "Signup successfull." });
+  }
+  const isMatch = await bcrypt.compare(otp, user.hashedOtp);
+  if (!isMatch) {
+    return res.status(400).json({ error: "Invalid OTP." });
+  }
+
+  user.email = newEmail;
+  user.hashedOtp = null;
+  await user.save();
+  res.status(200).json({
+    message: "Email updated successfully.",
+    user,
+  });
+});
