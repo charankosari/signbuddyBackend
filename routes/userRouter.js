@@ -11,7 +11,7 @@ const {
   addTemplate,
   deleteTemplate,
   sendAgreements,
-
+  updateProfileDetails,
   agreeDocument,
   viewedDocument,
   createAgreement,
@@ -36,6 +36,7 @@ router.route("/login").post(login);
 router.route("/forgotPassword").post(forgotPassword);
 router.route("/resetpassword/:id").post(resetPassword);
 router.route("/me").get(isAuthorized, userDetails);
+router.route("/me/profile-update").post(isAuthorized, updateProfileDetails);
 router.route("/me/recentdocuments").get(isAuthorized, recentDocuments);
 router.route("/addDetails").post(isAuthorized, updateDetails);
 router.route("/addtemplate").post(isAuthorized, addTemplate);
