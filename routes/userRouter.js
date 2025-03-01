@@ -24,6 +24,7 @@ const {
   ConvertToImages,
   googleAuth,
   verifyEmailUpdate,
+  deleteUser,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -56,6 +57,7 @@ router.route("/vieweddocument").post(isAuthorized, viewedDocument);
 router.route("/generatecontent").post(isAuthorized, createAgreement);
 router.route("/getEmails").post(getEmails);
 router.route("/getavatars").get(getAvatars);
+router.route("/me/profile-delete").delete(isAuthorized, deleteUser);
 router.route("/getcredits").get(isAuthorized, getCredits);
 router
   .route("/converttoimages")
