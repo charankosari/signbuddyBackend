@@ -30,9 +30,10 @@ const { S3Client } = require("@aws-sdk/client-s3");
 const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
 const SendUsersWithNoAccount = require("../models/SendUsersWithNoAccount");
-
+const { OAuth2Client } = require("google-auth-library");
 config({ path: "config/config.env" });
 // connection
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 exports.s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -692,6 +693,75 @@ exports.register = asyncHandler(async (req, res, next) => {
   sendJwt(user, 200, message, res);
 });
 
+exports.googleAuth = asyncHandler(async (req, res, next) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return next(new errorHandler("Google token is required", 400));
+  }
+
+  let ticket;
+  try {
+    // Verify the token using the Google client
+    ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+  } catch (error) {
+    return next(new errorHandler("Invalid Google token", 400));
+  }
+
+  const payload = ticket.getPayload();
+  const { email, name } = payload;
+
+  // Check if user already exists
+  let user = await User.findOne({ email }).select("+incomingAgreements");
+  let message = "";
+  let navigationUrl = "";
+
+  if (user) {
+    // Existing user: send token & navigate to dashboard
+    message = "Google authentication successful";
+    navigationUrl = "/dashboard";
+    return sendJwt(user, 200, { message, navigationUrl }, res);
+  }
+
+  // New user flow
+  user = new User({ email, userName: name });
+
+  // Check if the email exists in PreUser => grant 100 credits
+  const preUser = await PreUser.findOne({ email });
+  if (preUser) {
+    user.credits = 100;
+    message =
+      "Registration successful. You have been rewarded with 100 credits.";
+  } else {
+    message = "Registration successful";
+  }
+
+  // Check if this email exists in SendUsersWithNoAccount
+  const sendUserRecord = await SendUsersWithNoAccount.findOne({ email });
+  if (sendUserRecord) {
+    if (
+      sendUserRecord.incomingAgreements &&
+      sendUserRecord.incomingAgreements.length > 0
+    ) {
+      user.incomingAgreements = user.incomingAgreements.concat(
+        sendUserRecord.incomingAgreements
+      );
+    }
+    // Delete the record from SendUsersWithNoAccount
+    await SendUsersWithNoAccount.deleteOne({ email });
+  }
+
+  // Save the new user
+  await user.save();
+
+  // Navigate to profile setup for newly created users
+  navigationUrl = "/profile-setup";
+  return sendJwt(user, 200, { message, navigationUrl }, res);
+});
+
 //user login
 exports.login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
@@ -917,127 +987,6 @@ exports.deleteTemplate = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-// exports.convertToImages = asyncHandler(async (req, res, next) => {
-//   // Ensure the user is logged in.
-//   const user = await User.findById(req.user.id);
-//   if (!user) {
-//     return next(new errorHandler("Login to make a template", 400));
-//   }
-
-//   const uniqueId = uuidv4();
-//   const originalname = req.file.originalname.trimStart();
-//   const fileKey = `agreements/${uniqueId}-${originalname}`;
-//   const imagesFolder = `images/${uniqueId}-${originalname}`;
-
-//   // Ensure temporary directory exists
-//   const tempDir = path.join(__dirname, "../temp");
-//   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-
-//   let pdfBuffer;
-//   if (req.file.mimetype === "application/pdf") {
-//     // For PDF, use the file buffer directly.
-//     pdfBuffer = req.file.buffer;
-//   } else if (
-//     req.file.mimetype ===
-//     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-//   ) {
-//     // For DOCX, convert the buffer to PDF using libreoffice-convert.
-//     pdfBuffer = await new Promise((resolve, reject) => {
-//       libre.convert(req.file.buffer, ".pdf", undefined, (err, result) => {
-//         if (err) {
-//           console.error("Error converting DOCX to PDF:", err);
-//           return reject(err);
-//         }
-//         resolve(result);
-//       });
-//     });
-//   } else {
-//     throw new Error("Unsupported file type. Only PDF and DOCX are allowed.");
-//   }
-
-//   // Write the PDF buffer to a temporary file.
-//   const tempFilePath = path.join(tempDir, `${uniqueId}.pdf`);
-//   fs.writeFileSync(tempFilePath, pdfBuffer);
-
-//   // Upload the PDF document to S3.
-//   const fileBuffer = fs.readFileSync(tempFilePath);
-//   let mimetypeForUpload =
-//     "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-//   if (req.file.mimetype === "application/pdf") {
-//     mimetypeForUpload = "application/pdf";
-//   }
-//   const docUpload = await putObject(fileBuffer, fileKey, mimetypeForUpload);
-//   if (docUpload.status !== 200) {
-//     throw new Error("Failed to upload document");
-//   }
-//   const docUrl = docUpload.url;
-
-//   // Convert the PDF to images using Poppler.
-//   // Define an output folder for the images.
-//   const outputImagePath = path.join(tempDir, uniqueId);
-//   const options = {
-//     jpegFile: true,
-//     resolutionXYAxis: 300,
-//     singleFile: false,
-//   };
-
-//   // Ensure the output folder exists.
-//   if (!fs.existsSync(outputImagePath)) fs.mkdirSync(outputImagePath);
-
-//   // Convert PDF pages to JPEG images.
-//   await poppler.pdfToCairo(tempFilePath, outputImagePath, options);
-
-//   // Read all generated JPG files in the temp directory that match the uniqueId.
-//   const imageFiles = fs
-//     .readdirSync(tempDir)
-//     .filter((file) => file.startsWith(uniqueId) && file.endsWith(".jpg"));
-
-//   let imageUrls = [];
-//   for (const imageFile of imageFiles) {
-//     const imagePath = path.join(tempDir, imageFile);
-//     const imageBuffer = fs.readFileSync(imagePath);
-//     const imageKey = `${imagesFolder}/${imageFile}`;
-
-//     const imageUpload = await putObject(imageBuffer, imageKey, "image/jpeg");
-//     if (imageUpload.status !== 200) {
-//       throw new Error("Failed to upload images");
-//     }
-//     imageUrls.push(imageUpload.url);
-//     fs.unlinkSync(imagePath); // Clean up the temporary image file.
-//   }
-
-//   // Remove the temporary PDF file.
-//   fs.unlinkSync(tempFilePath);
-
-//   // Remove the output images folder if it's empty (optional cleanup).
-//   if (fs.existsSync(outputImagePath)) {
-//     fs.rmdirSync(outputImagePath, { recursive: true });
-//   }
-
-//   const date = new Date();
-//   const newDocument = {
-//     documentKey: fileKey,
-//     ImageUrls: imageUrls,
-//     documentName: originalname,
-//     sentAt: date,
-//   };
-
-//   const updatedUser = await User.findByIdAndUpdate(
-//     req.user.id,
-//     { $push: { documentsSent: newDocument } },
-//     { new: true, runValidators: true }
-//   );
-//   console.log(updatedUser);
-
-//   res.status(200).json({
-//     message: "Converted successfully",
-//     fileKey,
-//     docUrl,
-//     imageUrls,
-//     previewImageUrl: imageUrls,
-//     originalname,
-//   });
-// });
 
 exports.agreeDocument = asyncHandler(async (req, res, next) => {
   try {

@@ -11,7 +11,7 @@ const {
   addTemplate,
   deleteTemplate,
   sendAgreements,
-  // convertToImages,
+
   agreeDocument,
   viewedDocument,
   createAgreement,
@@ -22,6 +22,7 @@ const {
   deleteDocument,
   getCredits,
   ConvertToImages,
+  googleAuth,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -30,6 +31,7 @@ const { getAvatars } = require("../utils/s3objects");
 const { isAuthorized, roleAuthorize } = require("../middleware/auth");
 router.route("/verifyemail").post(sendOTP);
 router.route("/register").post(register);
+router.route("/googleauth").post(googleAuth);
 router.route("/login").post(login);
 router.route("/forgotPassword").post(forgotPassword);
 router.route("/resetpassword/:id").post(resetPassword);
