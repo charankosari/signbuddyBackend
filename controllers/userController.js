@@ -1632,7 +1632,8 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
 
 exports.sendAgreements = asyncHandler(async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select("+creditsHistory");
+
     if (!user) {
       return res.status(401).json({ error: "Unauthorized user" });
     }
@@ -1742,7 +1743,9 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         receivedAt: date,
       };
 
-      const recipientUser = await User.findOne({ email: recipientEmail });
+      const recipientUser = await User.findOne({
+        email: recipientEmail,
+      }).select("incomingAgreements");
       if (recipientUser) {
         recipientUser.incomingAgreements.push(agreementData);
         await recipientUser.save();
@@ -1762,7 +1765,9 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         await noAccountRecord.save();
       }
     }
-
+    if (user.drafts && user.drafts.length) {
+      user.drafts = user.drafts.filter((draft) => draft.fileKey !== fileKey);
+    }
     await user.save();
 
     res.status(200).json({
