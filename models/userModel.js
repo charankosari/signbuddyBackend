@@ -163,6 +163,7 @@ const userSchema = new mongoose.Schema({
   },
   creditsHistory: {
     type: [CreditHistorySchema],
+    default: [],
     select: false,
   },
   incomingAgreements: {

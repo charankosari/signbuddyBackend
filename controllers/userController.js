@@ -1633,7 +1633,6 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
 exports.sendAgreements = asyncHandler(async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-
     if (!user) {
       return res.status(401).json({ error: "Unauthorized user" });
     }
@@ -1648,10 +1647,11 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       }
     }
 
-    // Ensure required fields are provided and parse if necessary
+    // Ensure required fields are provided
     if (!req.body.emails || !req.body.names) {
       return res.status(400).json({ error: "Emails and names are required" });
     }
+
     const previewImageUrl = req.body.previewImageUrl;
     const fileKey = req.body.fileKey;
     const emails =
@@ -1677,12 +1677,13 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     )}`;
     const subject = "Agreement Document for Signing";
 
+    // Send out emails to all recipients.
     emails.forEach((email, index) => {
       sendEmail(
         email,
         subject,
         emailBody(
-          user.name,
+          user.userName,
           user.avatar,
           user.email,
           previewImageUrl,
@@ -1693,6 +1694,8 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     });
 
     const date = new Date();
+
+    // Build recipients info (used for updating sender's documentsSent).
     const recipients = await Promise.all(
       emails.map(async (email, index) => {
         const recipientUser = await User.findOne({ email });
@@ -1707,28 +1710,66 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       })
     );
 
+    // Update sender's document entry.
     const docIndex = user.documentsSent.findIndex(
-      (doc) => doc.documentKey === req.body.fileKey
+      (doc) => doc.documentKey === fileKey
     );
+    if (docIndex !== -1) {
+      user.documentsSent[docIndex] = {
+        ...user.documentsSent[docIndex],
+        signedDocument: null,
+        sentAt: date,
+        recipients: recipients,
+        placeholders: placeholders,
+      };
+    }
 
-    user.documentsSent[docIndex] = {
-      ...user.documentsSent[docIndex],
-      signedDocument: null,
-      sentAt: date,
-      recipients: recipients,
-      placeholders: placeholders,
-    };
+    // Deduct credits and update credits history.
     user.creditsHistory.push({
       thingUsed: "documentSent",
       creditsUsed: 10,
-      timestamp: new Date(),
+      timestamp: date,
     });
+
+    // For each recipient, update their incoming agreements or create a record for non-registered users.
+    for (let i = 0; i < emails.length; i++) {
+      const recipientEmail = emails[i];
+      const agreementData = {
+        agreementKey: fileKey,
+        senderEmail: user.email,
+        imageUrls: req.body.allImageUrls || [], // or however you obtain the image URLs
+        placeholders: placeholders,
+        receivedAt: date,
+      };
+
+      const recipientUser = await User.findOne({ email: recipientEmail });
+      if (recipientUser) {
+        recipientUser.incomingAgreements.push(agreementData);
+        await recipientUser.save();
+      } else {
+        // If the recipient does not have an account, update or create a record in SendUsersWithNoAccount.
+        let noAccountRecord = await SendUsersWithNoAccount.findOne({
+          email: recipientEmail,
+        });
+        if (!noAccountRecord) {
+          noAccountRecord = new SendUsersWithNoAccount({
+            email: recipientEmail,
+            incomingAgreements: [agreementData],
+          });
+        } else {
+          noAccountRecord.incomingAgreements.push(agreementData);
+        }
+        await noAccountRecord.save();
+      }
+    }
+
     await user.save();
 
     res.status(200).json({
       message: "Agreement sent successfully",
       previewImageUrl,
-      allImageUrls: imageUrls,
+      fileKey,
+      allImageUrls: req.body.allImageUrls,
     });
   } catch (error) {
     console.error("Error sending agreement:", error);
