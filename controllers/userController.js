@@ -16,9 +16,10 @@ const multer = require("multer");
 const {
   putObject,
   deleteObject,
-  getObject,
+
   UploadDocx,
 } = require("../utils/s3objects");
+const { processFile } = require("../utils/Ilovepdf");
 const storage = multer.memoryStorage();
 const { v4: uuidv4 } = require("uuid");
 const generateAgreement = require("../utils/grokAi");
@@ -28,6 +29,7 @@ const { getAvatarsList } = require("../utils/s3objects");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
+
 config({ path: "config/config.env" });
 // connection
 exports.s3Client = new S3Client({
@@ -1585,4 +1587,13 @@ exports.getCredits = asyncHandler(async (req, res, next) => {
     credits: user.credits,
     creditsHistory: user.creditsHistory,
   });
+});
+
+exports.ConvertToImages = asyncHandler(async (req, res, next) => {
+  const user = User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  const url = await UploadDocx(req.file);
+  const file = await processFile(url);
 });

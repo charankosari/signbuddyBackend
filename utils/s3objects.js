@@ -192,7 +192,6 @@ exports.getAvatarsList = async (req, res) => {
 };
 
 exports.UploadDocx = async (file) => {
-  // Validate the file object
   if (!file || !file.buffer) {
     throw new Error("No file provided");
   }
