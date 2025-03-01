@@ -1642,7 +1642,6 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
   // Write the PDF buffer to a file in the dedicated subfolder.
   const tempFilePath = path.join(processDir, `${uniqueId}.pdf`);
   fs.writeFileSync(tempFilePath, pdfBuffer);
-  console.log(`PDF written to ${tempFilePath}`);
 
   // If the input file is a PDF, upload the PDF to S3.
   if (file.mimetype === "application/pdf") {
@@ -1652,7 +1651,6 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       throw new Error("Failed to upload document");
     }
     docUrl = pdfUpload.url;
-    console.log(`PDF uploaded to S3: ${docUrl}`);
   }
 
   // Set up options for the PDF-to-image conversion.
@@ -1666,16 +1664,10 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
   // This prefix will be used to generate files like <uniqueId>-1.jpg, <uniqueId>-2.jpg, etc.
   const outputPrefix = path.join(processDir, uniqueId);
 
-  console.log("Starting PDF-to-images conversion with Poppler...");
   await poppler.pdfToCairo(tempFilePath, outputPrefix, options);
-  console.log("Poppler conversion complete.");
 
   // List files in the process directory after conversion.
   const filesAfterConversion = fs.readdirSync(processDir);
-  console.log(
-    "Files in process directory after conversion:",
-    filesAfterConversion
-  );
 
   // Filter for image files (accepting both .jpg and .jpeg).
   const imageFiles = filesAfterConversion.filter((f) => {
@@ -1697,17 +1689,47 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       throw new Error("Failed to upload image");
     }
     imageUrls.push(imageUpload.url);
-    console.log(`Uploaded image ${imageFile}: ${imageUpload.url}`);
     fs.unlinkSync(imagePath);
   }
 
   if (fs.existsSync(processDir)) {
     fs.rmSync(processDir, { recursive: true, force: true });
-    console.log(`Cleaned up process directory: ${processDir}`);
   }
 
+  const date = new Date();
+  const newDocument = {
+    documentKey: fileKey,
+    ImageUrls: imageUrls,
+    documentName: originalName,
+    sentAt: date,
+  };
+
+  // Also create a new draft object to push into user.drafts.
+  const newDraft = {
+    fileKey: fileKey,
+    fileUrl: docUrl,
+    uploadedAt: date,
+  };
+
+  // Update the user's documentsSent and drafts arrays.
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user.id,
+    {
+      $push: {
+        documentsSent: newDocument,
+        drafts: newDraft,
+      },
+    },
+    { new: true, runValidators: true }
+  );
+  console.log(updatedUser);
+
   res.status(200).json({
-    docUrl, // Returns the DOCX URL if input was DOCX; PDF URL if input was PDF.
-    imageUrls, // Array of URLs for the converted images.
+    message: "Converted successfully",
+    fileKey,
+    docUrl,
+    imageUrls,
+    previewImageUrl: imageUrls,
+    originalName,
   });
 });
