@@ -21,6 +21,7 @@ const {
   sendReminder,
   deleteDocument,
   getCredits,
+  ConvertToImages,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -53,4 +54,7 @@ router.route("/generatecontent").post(isAuthorized, createAgreement);
 router.route("/getEmails").post(getEmails);
 router.route("/getavatars").get(getAvatars);
 router.route("/getcredits").get(isAuthorized, getCredits);
+router
+  .route("/convert")
+  .post(isAuthorized, upload.single("file"), ConvertToImages);
 module.exports = router;

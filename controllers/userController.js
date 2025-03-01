@@ -1594,6 +1594,13 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
-  const url = await UploadDocx(req.file);
-  const file = await processFile(url);
+  const file = req.file;
+  const outputFilename = req.body.fileName;
+  console.log(outputFilename);
+  const cloudFile = await UploadDocx(file);
+  const f = await processFile(cloudFile, outputFilename);
+
+  res.status(200).json({
+    f,
+  });
 });
