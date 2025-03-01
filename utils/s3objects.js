@@ -191,13 +191,12 @@ exports.getAvatarsList = async (req, res) => {
   return imageUrls;
 };
 
-exports.UploadDocx = async (file) => {
+exports.UploadDocx = async (file, fileName) => {
   if (!file || !file.buffer) {
     throw new Error("No file provided");
   }
 
   const fileContent = file.buffer;
-  const fileName = file.originalname;
 
   const params = {
     Bucket: process.env.AWS_S3_BUCKET,

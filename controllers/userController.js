@@ -786,18 +786,17 @@ exports.addTemplate = (req, res) => {
 
     try {
       const fileName = `templates/${Date.now()}-${req.file.originalname}`;
-      const result = await putObject(
-        req.file.buffer,
-        fileName,
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      );
+
+      const file = req.file;
+
+      const result = await UploadDocx(file, fileName);
 
       if (result.status !== 200) {
         return res.status(500).json({ error: "Failed to upload file" });
       }
       const template = {
-        fileKey: result.key,
-        fileUrl: result.url,
+        fileKey: fileName,
+        fileUrl: result,
         uploadedAt: new Date(),
       };
 
@@ -805,7 +804,7 @@ exports.addTemplate = (req, res) => {
       await user.save();
       res.status(201).json({
         message: "File uploaded successfully",
-        fileUrl: result.url,
+        fileUrl: result,
         key: result.key,
       });
     } catch (error) {
@@ -830,18 +829,16 @@ exports.addDraft = (req, res) => {
 
     try {
       const fileName = `drafts/${Date.now()}-${req.file.originalname}`;
-      const result = await putObject(
-        req.file.buffer,
-        fileName,
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      );
+
+      const file = req.file;
+      const result = await UploadDocx(file, fileName);
 
       if (result.status !== 200) {
         return res.status(500).json({ error: "Failed to upload file" });
       }
       const draft = {
-        fileKey: result.key,
-        fileUrl: result.url,
+        fileKey: fileName,
+        fileUrl: result,
         uploadedAt: new Date(),
       };
 
@@ -849,8 +846,8 @@ exports.addDraft = (req, res) => {
       await user.save();
       res.status(201).json({
         message: "File uploaded successfully",
-        fileUrl: result.url,
-        key: result.key,
+        fileUrl: result,
+        key: fileName,
       });
     } catch (error) {
       console.error("Upload error:", error);
@@ -1590,17 +1587,127 @@ exports.getCredits = asyncHandler(async (req, res, next) => {
 });
 
 exports.ConvertToImages = asyncHandler(async (req, res, next) => {
-  const user = User.findById(req.user.id);
+  // Ensure the user exists.
+  const user = await User.findById(req.user.id);
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
+
   const file = req.file;
-  const outputFilename = req.body.fileName;
-  console.log(outputFilename);
-  const cloudFile = await UploadDocx(file);
-  const f = await processFile(cloudFile, outputFilename);
+  if (!file) {
+    return res.status(400).json({ error: "No file provided" });
+  }
+
+  // Generate a unique ID for this process.
+  const uniqueId = uuidv4();
+  const originalName = file.originalname.trimStart();
+  const fileKey = `agreements/${uniqueId}-${originalName}`;
+  const imagesFolder = `images/${uniqueId}-${originalName}`;
+
+  // Define the main temp directory.
+  const tempDir = path.join(__dirname, "../temp");
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  // Create a dedicated subfolder using the unique id.
+  const processDir = path.join(tempDir, uniqueId);
+  if (!fs.existsSync(processDir)) {
+    fs.mkdirSync(processDir, { recursive: true });
+  }
+  console.log(`Created process directory: ${processDir}`);
+
+  let pdfBuffer;
+  let docUrl;
+
+  if (
+    file.mimetype ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    // DOCX branch:
+    // 1. Upload the DOCX file with a unique name.
+    const docxUpload = await UploadDocx(file, `${uniqueId}-${originalName}`);
+    // 2. Use the DOCX URL in the response.
+    docUrl = docxUpload;
+    // 3. Process the DOCX to get a PDF buffer (for image conversion only).
+    pdfBuffer = await processFile(docxUpload, uniqueId);
+  } else if (file.mimetype === "application/pdf") {
+    // PDF branch:
+    // Get the PDF buffer directly.
+    pdfBuffer = file.buffer || fs.readFileSync(file.path);
+  } else {
+    return res.status(400).json({ error: "Unsupported file type" });
+  }
+
+  // Write the PDF buffer to a file in the dedicated subfolder.
+  const tempFilePath = path.join(processDir, `${uniqueId}.pdf`);
+  fs.writeFileSync(tempFilePath, pdfBuffer);
+  console.log(`PDF written to ${tempFilePath}`);
+
+  // If the input file is a PDF, upload the PDF to S3.
+  if (file.mimetype === "application/pdf") {
+    const fileBuffer = fs.readFileSync(tempFilePath);
+    const pdfUpload = await putObject(fileBuffer, fileKey, "application/pdf");
+    if (pdfUpload.status !== 200) {
+      throw new Error("Failed to upload document");
+    }
+    docUrl = pdfUpload.url;
+    console.log(`PDF uploaded to S3: ${docUrl}`);
+  }
+
+  // Set up options for the PDF-to-image conversion.
+  const options = {
+    jpegFile: true,
+    resolutionXYAxis: 300,
+    singleFile: false,
+  };
+
+  // Define an output prefix for Poppler conversion.
+  // This prefix will be used to generate files like <uniqueId>-1.jpg, <uniqueId>-2.jpg, etc.
+  const outputPrefix = path.join(processDir, uniqueId);
+
+  console.log("Starting PDF-to-images conversion with Poppler...");
+  await poppler.pdfToCairo(tempFilePath, outputPrefix, options);
+  console.log("Poppler conversion complete.");
+
+  // List files in the process directory after conversion.
+  const filesAfterConversion = fs.readdirSync(processDir);
+  console.log(
+    "Files in process directory after conversion:",
+    filesAfterConversion
+  );
+
+  // Filter for image files (accepting both .jpg and .jpeg).
+  const imageFiles = filesAfterConversion.filter((f) => {
+    const lower = f.toLowerCase();
+    return (
+      (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) &&
+      f.startsWith(uniqueId)
+    );
+  });
+
+  let imageUrls = [];
+  for (const imageFile of imageFiles) {
+    const imagePath = path.join(processDir, imageFile);
+    const imageBuffer = fs.readFileSync(imagePath);
+    const imageKey = `${imagesFolder}/${imageFile}`;
+
+    const imageUpload = await putObject(imageBuffer, imageKey, "image/jpeg");
+    if (imageUpload.status !== 200) {
+      throw new Error("Failed to upload image");
+    }
+    imageUrls.push(imageUpload.url);
+    console.log(`Uploaded image ${imageFile}: ${imageUpload.url}`);
+    fs.unlinkSync(imagePath);
+  }
+
+  if (fs.existsSync(processDir)) {
+    fs.rmSync(processDir, { recursive: true, force: true });
+    console.log(`Cleaned up process directory: ${processDir}`);
+  }
 
   res.status(200).json({
-    f,
+    docUrl, // Returns the DOCX URL if input was DOCX; PDF URL if input was PDF.
+    imageUrls, // Array of URLs for the converted images.
   });
 });
