@@ -62,4 +62,5 @@ router.route("/getcredits").get(isAuthorized, getCredits);
 router
   .route("/converttoimages")
   .post(isAuthorized, upload.single("file"), ConvertToImages);
+
 module.exports = router;

@@ -31,7 +31,6 @@ const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
 const SendUsersWithNoAccount = require("../models/SendUsersWithNoAccount");
 const { OAuth2Client } = require("google-auth-library");
-const { json } = require("stream/consumers");
 config({ path: "config/config.env" });
 // connection
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
