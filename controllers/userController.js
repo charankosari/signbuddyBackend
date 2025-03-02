@@ -716,7 +716,7 @@ exports.googleAuth = asyncHandler(async (req, res, next) => {
   const { email, name } = payload;
 
   // Check if user already exists
-  let user = await User.findOne({ email }).select("+incomingAgreements");
+  let user = await User.findOne({ email });
   let message = "";
   let navigationUrl = "";
 
