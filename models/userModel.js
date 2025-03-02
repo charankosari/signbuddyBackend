@@ -66,7 +66,7 @@ const userSchema = new mongoose.Schema({
   },
   subscriptionType: {
     type: String,
-    enum: ["free", "premium", "enterprise"],
+    enum: ["free", "anually", "monthly"],
     default: "free",
   },
   cooldownPeriod: {
