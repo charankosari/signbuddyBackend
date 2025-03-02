@@ -1832,15 +1832,77 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
 });
 exports.deleteUser = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
-
   const user = await User.findById(userId);
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  const keysToDelete = [];
+  if (user.drafts && Array.isArray(user.drafts)) {
+    user.drafts.forEach((draft) => {
+      if (draft.fileKey) {
+        keysToDelete.push({ Key: draft.fileKey });
+      }
+    });
+  }
+  if (user.templates && Array.isArray(user.templates)) {
+    user.templates.forEach((template) => {
+      if (template.fileKey) {
+        keysToDelete.push({ Key: template.fileKey });
+      }
+    });
+  }
+
+  if (user.documentsSent && Array.isArray(user.documentsSent)) {
+    for (const doc of user.documentsSent) {
+      if (doc.documentKey) {
+        keysToDelete.push({ Key: doc.documentKey });
+      }
+      if (doc.ImageUrls && Array.isArray(doc.ImageUrls)) {
+        doc.ImageUrls.forEach((imageKey) => {
+          keysToDelete.push({ Key: imageKey });
+        });
+      }
+      if (doc.documentKey) {
+        const prefix = `images/${doc.documentKey}/`;
+        const listParams = {
+          Bucket: process.env.AWS_S3_BUCKET, // Your S3 bucket name
+          Prefix: prefix,
+        };
+        try {
+          const listCommand = new ListObjectsV2Command(listParams);
+          const listResponse = await s3Client.send(listCommand);
+          if (listResponse.Contents && listResponse.Contents.length > 0) {
+            listResponse.Contents.forEach((item) => {
+              keysToDelete.push({ Key: item.Key });
+            });
+          }
+        } catch (error) {
+          console.error(`Error listing objects for prefix ${prefix}:`, error);
+        }
+      }
+    }
+  }
+
+  if (keysToDelete.length > 0) {
+    const deleteParams = {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Delete: {
+        Objects: keysToDelete,
+        Quiet: false,
+      },
+    };
+
+    try {
+      const deleteCommand = new DeleteObjectsCommand(deleteParams);
+      const deleteResponse = await s3Client.send(deleteCommand);
+      console.log("S3 deletion response:", deleteResponse);
+    } catch (error) {
+      console.error("Error deleting S3 objects:", error);
+    }
   }
 
   await User.findByIdAndDelete(userId);
-
-  res.status(200).json({ message: "User deleted successfully" });
+  res
+    .status(200)
+    .json({ message: "User and associated files deleted successfully" });
 });
 
 exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
