@@ -31,6 +31,7 @@ const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
 const SendUsersWithNoAccount = require("../models/SendUsersWithNoAccount");
 const { OAuth2Client } = require("google-auth-library");
+const { json } = require("stream/consumers");
 config({ path: "config/config.env" });
 // connection
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -666,7 +667,7 @@ exports.register = asyncHandler(async (req, res, next) => {
     message =
       "Registration successful. You have been rewarded with 100 credits.";
   }
-
+  await preUser.deleteOne({ email });
   // Check if this email exists in SendUsersWithNoAccount.
   const sendUserRecord = await SendUsersWithNoAccount.findOne({ email });
   if (sendUserRecord) {
@@ -830,6 +831,26 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
   user.resetPasswordToken = undefined;
   await user.save();
   sendJwt(user, 201, "reset password successfully", res);
+});
+
+// change password
+exports.changePassword = asyncHandler(async (req, res, next) => {
+  const { oldPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user.id).select("+password");
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const isMatch = await user.comparePassword(oldPassword);
+  if (!isMatch) {
+    return res.status(400).json({ message: "Old password not matched" });
+  }
+
+  user.password = newPassword;
+  await user.save(); // Hashing happens automatically due to pre-save middleware
+
+  res.status(200).json({ message: "Password changed successfully" });
 });
 
 // my details
@@ -1291,7 +1312,7 @@ exports.getEmails = async (req, res) => {
   }
 };
 exports.recentDocuments = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id).select("incomingAgreements");
+  const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
   let avatars = [];
   try {
@@ -1308,6 +1329,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       recipients,
       placeholders,
       signedDocument,
+      incomingAgreements,
     } = doc;
     const recipientDetails = recipients.map((r) => {
       const randomAvatar =
@@ -1347,6 +1369,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       signedDocument,
       placeholders: placeholders,
       drafts: draftsList,
+      incomingAgreements,
     };
   });
   res.status(200).json({ recentDocuments: recentDocs });

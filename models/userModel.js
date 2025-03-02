@@ -169,7 +169,6 @@ const userSchema = new mongoose.Schema({
   incomingAgreements: {
     type: [IncomingAgreementSchema],
     default: [],
-    select: false,
   },
   hashedOtp: { type: String, default: null, required: false },
   resetPasswordToken: String,
