@@ -1729,6 +1729,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       })
     );
     const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
+
     // Update sender's document entry.
     const docIndex = user.documentsSent.findIndex(
       (doc) => doc.documentKey === fileKey
@@ -1759,6 +1760,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         imageUrls: d.ImageUrls || [], // or however you obtain the image URLs
         placeholders: placeholders,
         receivedAt: date,
+        title: d && d.documentName ? d.documentName : "",
       };
 
       const recipientUser = await User.findOne({

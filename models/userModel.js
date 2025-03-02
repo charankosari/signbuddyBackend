@@ -25,6 +25,7 @@ const IncomingAgreementSchema = new mongoose.Schema({
   senderEmail: { type: String, required: true },
   imageUrls: { type: [String], default: [] },
   placeholders: { type: Array, default: [] },
+  title: { type: String },
   receivedAt: { type: Date, default: Date.now },
   status: {
     type: String,
