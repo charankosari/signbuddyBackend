@@ -9,6 +9,7 @@ const SendUsersWithNoAccountSchema = new mongoose.Schema({
       imageUrls: { type: [String], default: [] },
       placeholders: { type: Array, default: [] },
       receivedAt: { type: Date, default: Date.now },
+      title: { type: String },
       status: {
         type: String,
         enum: ["pending", "signed", "rejected"],
