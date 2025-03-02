@@ -1377,6 +1377,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     agreementKey: agreement.agreementKey,
     senderEmail: agreement.senderEmail,
     imageUrls: agreement.imageUrls,
+    title: agreement.title,
     placeholders: agreement.placeholders,
     receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
     status: agreement.status,
