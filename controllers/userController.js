@@ -1314,6 +1314,7 @@ exports.getEmails = async (req, res) => {
 exports.recentDocuments = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
+
   let avatars = [];
   try {
     avatars = await getAvatarsList();
@@ -1329,7 +1330,6 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       recipients,
       placeholders,
       signedDocument,
-      incomingAgreements,
     } = doc;
     const recipientDetails = recipients.map((r) => {
       const randomAvatar =
@@ -1343,16 +1343,17 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
         recipientsAvatar: randomAvatar,
       };
     });
+
     const draftsList = user.drafts.map((draft) => ({
       name: draft.fileKey,
       url: draft.fileUrl,
       time: formatTimeAgo(new Date(draft.uploadedAt)),
     }));
+
     const recipientStatuses = recipients.map((r) => r.status);
     let status = "pending";
 
     if (!recipientStatuses || recipientStatuses.length === 0) {
-      // No recipient found
       status = "draft";
     } else if (recipientStatuses.every((s) => s === "signed")) {
       status = "completed";
@@ -1369,10 +1370,19 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       signedDocument,
       placeholders: placeholders,
       drafts: draftsList,
-      incomingAgreements,
     };
   });
-  res.status(200).json({ recentDocuments: recentDocs });
+
+  const incomingAgreements = user.incomingAgreements.map((agreement) => ({
+    agreementKey: agreement.agreementKey,
+    senderEmail: agreement.senderEmail,
+    imageUrls: agreement.imageUrls,
+    placeholders: agreement.placeholders,
+    receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
+    status: agreement.status,
+  }));
+
+  res.status(200).json({ recentDocuments: recentDocs, incomingAgreements });
 });
 
 exports.sendReminder = asyncHandler(async (req, res, next) => {
