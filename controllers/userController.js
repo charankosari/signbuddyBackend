@@ -2478,7 +2478,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
 
 exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
-  const { username, email, avatar } = req.body;
+  const { userName, email, avatar } = req.body;
 
   if (!username && !email && !avatar) {
     return res.status(400).json({
@@ -2488,7 +2488,7 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
   }
 
   const updateData = {};
-  if (username) updateData.userName = username;
+  if (username) updateData.userName = userName;
   if (avatar) updateData.avatar = avatar;
 
   let updatedUser = await User.findByIdAndUpdate(userId, updateData, {
