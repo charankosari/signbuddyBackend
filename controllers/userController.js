@@ -1392,7 +1392,7 @@ exports.googleAuth = asyncHandler(async (req, res, next) => {
     // Delete the record from SendUsersWithNoAccount
     await SendUsersWithNoAccount.deleteOne({ email });
   }
-
+  user.type = "google";
   // Save the new user
   await user.save();
 

@@ -73,6 +73,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+
   creditsUsedInMembership: { type: Number, default: 0 },
   agreements: {
     type: [String],
@@ -158,6 +159,7 @@ const userSchema = new mongoose.Schema({
     type: [IncomingAgreementSchema],
     default: [],
   },
+  type: { type: String, enum: ["google", "normal"], default: "normal" },
   hashedOtp: { type: String, default: null, required: false },
   hashedOtpExpire: { type: Date, default: null },
   resetPasswordToken: String,
