@@ -89,12 +89,28 @@ const emailBody = (
       </div>
 
       <div style="padding: 30px; margin: 30px; background-color: #000000; border: 1px solid #333333; color: #ffffff;">
-        <div style="display: flex; align-items: flex-start; margin-bottom: 20px;">
-          <img src=${avatar} alt="Profile Picture" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 12px;" />
-          <div style="display: flex; flex-direction: column; justify-content: center; height: 30px;alin-items:center">
-            <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${senderName}</h2>
-            <h2 style="margin: 0; font-size: 13px; font-weight: 600; line-height: 1.2;">${senderEmail}</h2>
-          </div>
+       <table style="margin-bottom: 20px;" cellspacing="0" cellpadding="0">
+  <tr>
+    <td style="vertical-align: top; padding-right: 12px;">
+      <img src="${avatar}" alt="Profile Picture" style="width: 30px; height: 30px; border-radius: 50%;" />
+    </td>
+    <td style="vertical-align: middle;">
+      <table cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="font-size: 13px; font-weight: 600; line-height: 1.2; margin: 0;">
+            ${senderName}
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size: 13px; font-weight: 600; line-height: 1.2; margin: 0;">
+            ${senderEmail}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
         </div>
 
         <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">Dear ${name},</p>
@@ -169,6 +185,602 @@ const emailBody = (
 </html>
   `;
 };
+
+const signUpOtpMail = (otp) => {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify your Email</title>
+  </head>
+  <body style="margin: 0; padding: 0; font-family: Arial, sans-serif">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr>
+        <td align="center">
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="max-width: 600px; margin: 0 auto"
+          >
+            <!-- Gray Section -->
+            <tr>
+              <td style="background-color: #dadadb; padding: 40px 30px">
+                <!-- Logo -->
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="right">
+                      <p style="margin: 0; font-size: 16px; font-weight: bold">
+                        Signbuddy
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Email Icon with Lines -->
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="margin: 30px 0 20px"
+                >
+                  <tr>
+                    <td align="center">
+                      <div style="display: inline-block" class="icon-container">
+                        <div
+                          style="
+                            border-top: 1px solid #666666;
+                            width: 100px;
+                            margin-right: 15px;
+                            display: inline-block;
+                            vertical-align: middle;
+                          "
+                          class="decorative-line"
+                        ></div>
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/mail.png"
+                          alt="Email Icon"
+                          style="
+                            width: 24px;
+                            height: 24px;
+                            vertical-align: middle;
+                          "
+                        />
+                        <div
+                          style="
+                            border-top: 1px solid #666666;
+                            width: 100px;
+                            margin-left: 15px;
+                            display: inline-block;
+                            vertical-align: middle;
+                          "
+                          class="decorative-line"
+                        ></div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Titles -->
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center">
+                      <h2
+                        style="
+                          margin: 0 0 15px;
+                          font-size: 20px;
+                          color: #000000;
+                        "
+                        class="signup-title"
+                      >
+                        Thanks for Signing up!
+                      </h2>
+                      <h1
+                        style="margin: 0; font-size: 28px; color: #000000"
+                        class="verify-title"
+                      >
+                        Verify your E-Mail Address
+                      </h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Black Section -->
+            <tr>
+              <td style="background-color: #09090b; padding: 40px 30px">
+                <!-- Rest of the content remains the same -->
+                <!-- Greeting -->
+                <p style="color: #ffffff; margin: 0 0 20px; font-size: 16px">
+                  Hey there,
+                </p>
+                <!-- Message -->
+                <p style="color: #ffffff; margin: 0 0 20px; font-size: 16px">
+                  We received your request for Email Verification on Signbuddy.
+                </p>
+                <p style="color: #ffffff; margin: 0 0 20px; font-size: 16px">
+                  Here is your OTP to proceed:
+                </p>
+                <!-- OTP Section -->
+                <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                role="presentation"
+              >
+                <tr>
+                  <td align="left" style="padding: 20px 0">
+                    <table
+                      cellpadding="0"
+                      cellspacing="0"
+                      role="presentation"
+                    >
+                      <tr>
+                        ${otp
+                          .split("")
+                          .map(
+                            (digit) => `
+                        <td style="padding: 0 5px">
+                          <div
+                            style="
+                              background-color: #1a1a1a;
+                              border: 1px solid #333;
+                              padding: 10px 15px;
+                              border-radius: 4px;
+                            "
+                          >
+                            <span
+                              style="
+                                color: #ffffff;
+                                font-size: 24px;
+                                font-weight: bold;
+                              "
+                              >${digit}</span
+                            >
+                          </div>
+                        </td>
+                        `
+                          )
+                          .join("")}
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+                <!-- Validity Message -->
+                <p
+                  style="
+                    color: #ffffff;
+                    margin: 20px 0;
+                    font-size: 16px;
+                    line-height: 1.6;
+                  "
+                >
+                  This OTP will be valid for the next 10 minutes, please enter
+                  the OTP in the specified field to continue with your account.
+                </p>
+                <!-- Report Message -->
+                <p style="color: #666666; margin: 20px 0 0; font-size: 14px">
+                  If you didn't request this, please report to us at
+                  <a
+                    href="mailto:official@signbuddy.in"
+                    style="color: #007bff; text-decoration: none"
+                    >official@signbuddy.in</a
+                  >
+                </p>
+                <!-- Description -->
+                <p
+                  style="
+                    color: #666666;
+                    margin: 30px 0 0;
+                    font-size: 12px;
+                    line-height: 1.5;
+                  "
+                >
+                  SignBuddy is a smart, affordable digital signing platform
+                  designed for seamless document management. Users can sign up,
+                  create or upload documents, and send them via email for
+                  signatures. The first three documents are free, making it
+                  accessible for individuals and businesses. AI-powered
+                  assistance helps in document creation, saving time and effort.
+                  Secure, legally binding e-signatures ensure compliance with
+                  industry standards. Affordable pricing makes it a great
+                  alternative to costly solutions like DocuSign. Sign documents
+                  from anywhere, on any device, with a simple and intuitive
+                  interface. Streamline your workflow with SignBuddy - where
+                  signing documents is effortless.
+                </p>
+                <!-- Footer -->
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  role="presentation"
+                  style="margin-top: 30px; border-top: 1px solid #333"
+                >
+                  <tr>
+                    <td style="padding-top: 20px">
+                      <table
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        role="presentation"
+                      >
+                        <tr>
+                          <td style="color: #666666; font-size: 10px">
+                            Copyright © 2025 SignFastly. All Rights Reserved.
+                          </td>
+                          <td align="right">
+                            <a
+                              href="#"
+                              style="
+                                color: #666666;
+                                text-decoration: underline;
+                                font-size: 10px;
+                                padding: 0 10px;
+                              "
+                              >Privacy Policy</a
+                            >
+                            <a
+                              href="#"
+                              style="
+                                color: #666666;
+                                text-decoration: underline;
+                                font-size: 10px;
+                                padding: 0 10px;
+                              "
+                              >Terms & Conditions</a
+                            >
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding-top: 20px">
+                      <p style="color: #666666; font-size: 12px; margin: 0">
+                        Powered by <strong>Syncore Labs</strong>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+  <!-- Add this at the end of your file, just before </body> -->
+  <!--[if !mso]><!-->
+  <style>
+    @media screen and (max-width: 600px) {
+      .signup-title {
+        font-size: 20px !important;
+        margin-bottom: 10px !important;
+      }
+      .verify-title {
+        font-size: 26px !important;
+      }
+    }
+
+    @media screen and (max-width: 400px) {
+      .signup-title {
+        font-size: 18px !important;
+        margin-bottom: 8px !important;
+      }
+      .verify-title {
+        font-size: 22px !important;
+      }
+    }
+  </style>
+  <!--<![endif]-->
+</html>
+ 
+`;
+};
+const VerifyEmailTemplate = (otp, name) => {
+  return `
+  <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify your Email</title>
+  </head>
+  <body style="margin: 0; padding: 0; font-family: Arial, sans-serif">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr>
+        <td align="center">
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="max-width: 600px; margin: 0 auto"
+          >
+            <!-- Gray Section -->
+            <tr>
+              <td style="background-color: #dadadb; padding: 40px 30px">
+                <!-- Logo -->
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="right">
+                      <p style="margin: 0; font-size: 16px; font-weight: bold">
+                        Signbuddy
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Email Icon with Lines -->
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="margin: 30px 0 20px"
+                >
+                  <tr>
+                    <td align="center">
+                      <div style="display: inline-block" class="icon-container">
+                        <div
+                          style="
+                            border-top: 1px solid #666666;
+                            width: 100px;
+                            margin-right: 15px;
+                            display: inline-block;
+                            vertical-align: middle;
+                          "
+                          class="decorative-line"
+                        ></div>
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/mail.png"
+                          alt="Email Icon"
+                          style="
+                            width: 24px;
+                            height: 24px;
+                            vertical-align: middle;
+                          "
+                        />
+                        <div
+                          style="
+                            border-top: 1px solid #666666;
+                            width: 100px;
+                            margin-left: 15px;
+                            display: inline-block;
+                            vertical-align: middle;
+                          "
+                          class="decorative-line"
+                        ></div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Titles -->
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center">
+                      <h2
+                        style="
+                          margin: 0 0 15px;
+                          font-size: 16px;
+                          color: #2a2a2a;
+                        "
+                        class="signup-title"
+                      >
+                        Change your Email Address
+                      </h2>
+                      <h1
+                        style="margin: 0; font-size: 24px; color: #000000"
+                        class="verify-title"
+                      >
+                        Verify your E-Mail Address
+                      </h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Black Section -->
+            <tr>
+              <td style="background-color: #09090b; padding: 40px 30px">
+                <!-- Rest of the content remains the same -->
+                <!-- Greeting -->
+                <p style="color: #ffffff; margin: 0 0 20px; font-size: 16px">
+                  Hey there ${name},
+                </p>
+                <!-- Message -->
+                <p style="color: #ffffff; margin: 0 0 20px; font-size: 16px">
+                  We received your request for Email Verification on Signbuddy.
+                </p>
+                <p style="color: #ffffff; margin: 0 0 20px; font-size: 16px">
+                  Here is your OTP to proceed:
+                </p>
+                <!-- OTP Section -->
+               <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  role="presentation"
+                >
+                  <tr>
+                    <td align="left" style="padding: 20px 0">
+                      <table
+                        cellpadding="0"
+                        cellspacing="0"
+                        role="presentation"
+                      >
+                        <tr>
+                          ${otp
+                            .split("")
+                            .map(
+                              (digit) => `
+                          <td style="padding: 0 5px">
+                            <div
+                              style="
+                                background-color: #1a1a1a;
+                                border: 1px solid #333;
+                                padding: 10px 15px;
+                                border-radius: 4px;
+                              "
+                            >
+                              <span
+                                style="
+                                  color: #ffffff;
+                                  font-size: 24px;
+                                  font-weight: bold;
+                                "
+                                >${digit}</span
+                              >
+                            </div>
+                          </td>
+                          `
+                            )
+                            .join("")}
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                <!-- Validity Message -->
+                <p
+                  style="
+                    color: #ffffff;
+                    margin: 20px 0;
+                    font-size: 16px;
+                    line-height: 1.6;
+                  "
+                >
+                  This OTP will be valid for the next 10 minutes, please enter
+                  the OTP in the specified field to continue with your account.
+                </p>
+                <!-- Report Message -->
+                <p style="color: #666666; margin: 20px 0 0; font-size: 14px">
+                  If you didn't request this, please report to us at
+                  <a
+                    href="mailto:official@signbuddy.in"
+                    style="color: #007bff; text-decoration: none"
+                    >official@signbuddy.in</a
+                  >
+                </p>
+                <!-- Description -->
+                <p
+                  style="
+                    color: #666666;
+                    margin: 30px 0 0;
+                    font-size: 12px;
+                    line-height: 1.5;
+                  "
+                >
+                  SignBuddy is a smart, affordable digital signing platform
+                  designed for seamless document management. Users can sign up,
+                  create or upload documents, and send them via email for
+                  signatures. The first three documents are free, making it
+                  accessible for individuals and businesses. AI-powered
+                  assistance helps in document creation, saving time and effort.
+                  Secure, legally binding e-signatures ensure compliance with
+                  industry standards. Affordable pricing makes it a great
+                  alternative to costly solutions like DocuSign. Sign documents
+                  from anywhere, on any device, with a simple and intuitive
+                  interface. Streamline your workflow with SignBuddy - where
+                  signing documents is effortless.
+                </p>
+                <!-- Footer -->
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  role="presentation"
+                  style="margin-top: 30px; border-top: 1px solid #333"
+                >
+                  <tr>
+                    <td style="padding-top: 20px">
+                      <table
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        role="presentation"
+                      >
+                        <tr>
+                          <td style="color: #666666; font-size: 10px">
+                            Copyright © 2025 SignFastly. All Rights Reserved.
+                          </td>
+                          <td align="right">
+                            <a
+                              href="#"
+                              style="
+                                color: #666666;
+                                text-decoration: underline;
+                                font-size: 10px;
+                                padding: 0 10px;
+                              "
+                              >Privacy Policy</a
+                            >
+                            <a
+                              href="#"
+                              style="
+                                color: #666666;
+                                text-decoration: underline;
+                                font-size: 10px;
+                                padding: 0 10px;
+                              "
+                              >Terms & Conditions</a
+                            >
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding-top: 20px">
+                      <p style="color: #666666; font-size: 12px; margin: 0">
+                        Powered by <strong>Syncore Labs</strong>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+  <!-- Add this at the end of your file, just before </body> -->
+  <!--[if !mso]><!-->
+  <style>
+    @media screen and (max-width: 600px) {
+      .signup-title {
+        font-size: 20px !important;
+        margin-bottom: 10px !important;
+      }
+      .verify-title {
+        font-size: 26px !important;
+      }
+    }
+
+    @media screen and (max-width: 400px) {
+      .signup-title {
+        font-size: 18px !important;
+        margin-bottom: 8px !important;
+      }
+      .verify-title {
+        font-size: 22px !important;
+      }
+    }
+  </style>
+  <!--<![endif]-->
+</html>
+
+`;
+};
+
 const formatTimeAgo = (date) => {
   const now = new Date();
   const diff = Math.floor((now - date) / 1000); // Difference in seconds
@@ -620,7 +1232,7 @@ exports.sendOTP = asyncHandler(async (req, res, next) => {
     { upsert: true, new: true }
   );
   const subject = "Your OTP Code";
-  const body = `<h1>Your OTP is: ${otp}</h1><p>Use this OTP to verify your account.</p>`;
+  const body = signUpOtpMail(otp);
   sendEmail(email, subject, body);
   res.status(200).json({ success: true, message: "OTP sent to email" });
 });
@@ -1864,7 +2476,9 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
     user.hashedOtpExpire = Date.now() + 10 * 60 * 1000;
 
     await user.save();
-    sendEmail(user.email, "Verify your new email", `Your OTP is: ${otp}`);
+    const body = VerifyEmailTemplate(otp, user.userName);
+
+    sendEmail(user.email, "Verify your new email", body);
     if (!username && !avatar) {
       return res.status(200).json({
         message: "Sent Otp to email.",
@@ -1926,7 +2540,8 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   user.hashedOtp = hashedOtp;
   user.hashedOtpExpire = Date.now() + 10 * 60 * 1000;
   await user.save();
-  sendEmail(email, "Forgot passowrd", `Your OTP is: ${otp}`);
+  const body = VerifyEmailTemplate(otp, user.userName);
+  sendEmail(email, "Forgot passowrd", body);
   return res.status(201).json({ message: "OTP Sent successfully" });
 });
 
