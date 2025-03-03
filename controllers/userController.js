@@ -1761,36 +1761,6 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
   }
 });
 
-// exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
-//   const userId = req.user.id;
-//   const { username, email, avatar } = req.body;
-
-//   if (!username && !email && !avatar) {
-//     return res.status(400).json({
-//       error:
-//         "At least one field (username, email, or avatar) must be provided to update.",
-//     });
-//   }
-
-//   const updateData = {};
-//   if (username) updateData.userName = username;
-//   if (email) updateData.email = email;
-//   if (avatar) updateData.avatar = avatar;
-
-//   const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-//     new: true,
-//     runValidators: true,
-//   });
-
-//   if (!updatedUser) {
-//     return res.status(404).json({ error: "User not found" });
-//   }
-
-//   res.status(200).json({
-//     message: "Profile updated successfully",
-//     user: updatedUser,
-//   });
-// });
 exports.deleteUser = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
   const user = await User.findById(userId);
