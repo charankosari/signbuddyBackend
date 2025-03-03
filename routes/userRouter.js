@@ -25,6 +25,7 @@ const {
   googleAuth,
   verifyEmailUpdate,
   deleteUser,
+  changePassword,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -39,6 +40,7 @@ router.route("/forgotPassword").post(forgotPassword);
 router.route("/resetpassword/:id").post(resetPassword);
 router.route("/me").get(isAuthorized, userDetails);
 router.route("/me/profile-update").post(isAuthorized, updateProfileDetails);
+router.route("/me/changepassword").post(isAuthorized, changePassword);
 router.route("/me/profile-verify").post(isAuthorized, verifyEmailUpdate);
 router.route("/me/recentdocuments").get(isAuthorized, recentDocuments);
 router.route("/addDetails").post(isAuthorized, updateDetails);

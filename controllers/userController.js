@@ -842,13 +842,21 @@ exports.changePassword = asyncHandler(async (req, res, next) => {
     return res.status(404).json({ message: "User not found" });
   }
 
+  // If no password is set, assume user signed up with email only.
+  if (!user.password) {
+    user.password = newPassword;
+    await user.save();
+    return res.status(200).json({ message: "Password set successfully" });
+  }
+
+  // Otherwise, compare the provided old password.
   const isMatch = await user.comparePassword(oldPassword);
   if (!isMatch) {
     return res.status(400).json({ message: "Old password not matched" });
   }
 
   user.password = newPassword;
-  await user.save(); // Hashing happens automatically due to pre-save middleware
+  await user.save();
 
   res.status(200).json({ message: "Password changed successfully" });
 });
