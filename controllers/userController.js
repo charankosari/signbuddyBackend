@@ -67,6 +67,7 @@ const uploadDocs = multer({
     }
   },
 }).single("file");
+
 const emailBody = (
   senderName,
   avatar,
@@ -76,6 +77,29 @@ const emailBody = (
   name,
   emailB
 ) => {
+  const instructions = !emailB
+    ? `
+        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">Dear ${name},</p>
+        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
+          A document has been shared with you for your electronic signature through SignBuddy's secure digital signing platform.
+        </p>
+        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
+          This document requires your attention and electronic signature to proceed. Our system ensures a secure, legally-binding signature
+          process that complies with international e-signature regulations.
+        </p>
+        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">To complete this process:</p>
+        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
+          1. Review the document preview below<br />
+          2. Click the "Sign Document" button to access the full document<br />
+          3. Follow the guided signing process<br />
+          4. Receive your signed copy via email
+        </p>
+        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
+          For security reasons, this signing link will expire in 72 hours. If you have any questions or need assistance, please contact our support
+          team.
+        </p>
+      `
+    : "";
   return `
   <!DOCTYPE html>
 <html lang="en">3
@@ -115,25 +139,7 @@ const emailBody = (
 
         </div>
 
-        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">Dear ${name},</p>
-        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
-          A document has been shared with you for your electronic signature through SignBuddy's secure digital signing platform.
-        </p>
-        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
-          This document requires your attention and electronic signature to proceed. Our system ensures a secure, legally-binding signature
-          process that complies with international e-signature regulations.
-        </p>
-        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">To complete this process:</p>
-        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
-          1. Review the document preview below<br />
-          2. Click the "Sign Document" button to access the full document<br />
-          3. Follow the guided signing process<br />
-          4. Receive your signed copy via email
-        </p>
-        <p style="font-size: 11px; line-height: 1.5; color: #f0f0f0; margin-bottom: 8px;">
-          For security reasons, this signing link will expire in 72 hours. If you have any questions or need assistance, please contact our support
-          team.
-        </p>
+        ${instructions}
   
         <img src="${previewImageUrl}" alt="document" style="width: 100%; max-width: 300px; height: 400px; object-fit: cover; margin: 25px auto; display: block; border: 1px solid #333; border-radius: 4px;" />
 
