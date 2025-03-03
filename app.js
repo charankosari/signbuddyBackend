@@ -14,8 +14,8 @@ app.use(cookieParser());
 app.use(logger("tiny"));
 app.use(express.json());
 
-app.use("/api/v1/payments", payments);
 app.use("/api/v1", user);
+app.use("/api/v1/payments", payments);
 app.use(errorMiddleware);
 
 module.exports = app;

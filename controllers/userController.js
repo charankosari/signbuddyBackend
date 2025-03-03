@@ -795,11 +795,12 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   const message = `your reset url is ${resetUrl} leave it if you didnt requested for it`;
   await user.save({ validateBeforeSave: false });
   try {
-    const mailMessage = await sendEmail({
-      email: user.email,
-      subject: "password reset mail",
-      message: message,
-    });
+    const mailMessage = await sendEmail(
+      user.email,
+      "password reset mail",
+      message
+    );
+
     res.status(201).json({
       success: true,
       message: "mail sent successfully",
