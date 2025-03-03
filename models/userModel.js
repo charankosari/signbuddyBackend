@@ -159,7 +159,7 @@ const userSchema = new mongoose.Schema({
     type: [IncomingAgreementSchema],
     default: [],
   },
-  type: { type: String, enum: ["google", "normal"], default: "normal" },
+  pass: { type: Boolean, default: false },
   hashedOtp: { type: String, default: null, required: false },
   hashedOtpExpire: { type: Date, default: null },
   resetPasswordToken: String,
@@ -172,6 +172,7 @@ userSchema.pre("save", async function (next) {
     return next();
   }
   this.password = await bcrypt.hash(this.password, 10);
+  this.pass = true;
   next();
 });
 
