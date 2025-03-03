@@ -2480,7 +2480,7 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
   const { userName, email, avatar } = req.body;
 
-  if (!username && !email && !avatar) {
+  if (!userName && !email && !avatar) {
     return res.status(400).json({
       error:
         "At least one field (username, email, or avatar) must be provided to update.",
@@ -2488,7 +2488,7 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
   }
 
   const updateData = {};
-  if (username) updateData.userName = userName;
+  if (userName) updateData.userName = userName;
   if (avatar) updateData.avatar = avatar;
 
   let updatedUser = await User.findByIdAndUpdate(userId, updateData, {
