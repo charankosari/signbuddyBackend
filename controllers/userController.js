@@ -2507,7 +2507,7 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
     await user.save();
     const body = VerifyEmailTemplate(otp, user.userName);
 
-    sendEmail(user.email, "Verify your new email", body);
+    sendEmail(email, "Verify your new email", body);
     if (!username && !avatar) {
       return res.status(200).json({
         message: "Sent Otp to email.",
