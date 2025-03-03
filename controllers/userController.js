@@ -73,7 +73,8 @@ const emailBody = (
   senderEmail,
   previewImageUrl,
   redirectUrl,
-  name
+  name,
+  emailB
 ) => {
   return `
   <!DOCTYPE html>
@@ -133,7 +134,7 @@ const emailBody = (
           For security reasons, this signing link will expire in 72 hours. If you have any questions or need assistance, please contact our support
           team.
         </p>
-
+  
         <img src="${previewImageUrl}" alt="document" style="width: 100%; max-width: 300px; height: 400px; object-fit: cover; margin: 25px auto; display: block; border: 1px solid #333; border-radius: 4px;" />
 
         <a href="${redirectUrl}" style="display: inline-block; padding: 12px 30px; background-color: #ffffff; color: #000000; text-decoration: none; border-radius: 4px; margin: 20px auto; display: block; width: fit-content; font-size: 13px; font-weight: 500;">Sign Document</a>
@@ -2262,11 +2263,18 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     }
 
     // Ensure required fields are provided
-    if (!req.body.emails || !req.body.names) {
+    if (
+      !req.body.emails ||
+      !req.body.names ||
+      req.body.emails === null ||
+      req.body.names === null
+    ) {
       return res.status(400).json({ error: "Emails and names are required" });
     }
 
     const previewImageUrl = req.body.previewImageUrl;
+    const emailB = req.body.emailBody;
+    const subjectB = req.body.emailSubject;
     const fileKey = req.body.fileKey;
     const emails =
       typeof req.body.emails === "string"
@@ -2289,20 +2297,20 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
       fileKey
     )}`;
-    const subject = "Agreement Document for Signing";
     const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
     // Send out emails to all recipients.
     emails.forEach((email, index) => {
       sendEmail(
         email,
-        subject,
+        subjectB,
         emailBody(
           user.userName,
           user.avatar,
           user.email,
           d.ImageUrls[0],
           redirectUrl,
-          names[index]
+          names[index],
+          emailB
         )
       );
     });
