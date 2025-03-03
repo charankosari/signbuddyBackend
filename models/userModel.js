@@ -172,6 +172,7 @@ const userSchema = new mongoose.Schema({
     default: [],
   },
   hashedOtp: { type: String, default: null, required: false },
+  hashedOtpExpire: { type: Date, default: null },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
 });
@@ -205,8 +206,8 @@ userSchema.methods.resetToken = function () {
   this.resetPasswordExpire = Date.now() + 1000 * 60 * 60 * 24 * 15;
   return token;
 };
-// ai cool down features
 
+// ai cool down features
 userSchema.virtual("isInCooldown").get(function () {
   return this.cooldownPeriod && new Date() < this.cooldownPeriod;
 });
@@ -228,4 +229,12 @@ userSchema.methods.resetCooldownIfExpired = function () {
     this.cooldownPeriod = null;
   }
 };
+
+userSchema.methods.CheckExpiryOfOtp = function () {
+  if (!this.hashedOtp || !this.hashedOtpExpire) {
+    return true;
+  }
+  return Date.now() > this.hashedOtpExpire;
+};
+
 module.exports = mongoose.model("User", userSchema);

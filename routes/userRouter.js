@@ -37,7 +37,7 @@ router.route("/register").post(register);
 router.route("/googleauth").post(googleAuth);
 router.route("/login").post(login);
 router.route("/forgotPassword").post(forgotPassword);
-router.route("/resetpassword/:id").post(resetPassword);
+router.route("/resetpassword").post(resetPassword);
 router.route("/me").get(isAuthorized, userDetails);
 router.route("/me/profile-update").post(isAuthorized, updateProfileDetails);
 router.route("/me/changepassword").post(isAuthorized, changePassword);

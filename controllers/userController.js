@@ -665,8 +665,9 @@ exports.register = asyncHandler(async (req, res, next) => {
     user.credits = 100;
     message =
       "Registration successful. You have been rewarded with 100 credits.";
+    await PreUser.deleteOne({ email }); // Now safe since preUser exists.
   }
-  await preUser.deleteOne({ email });
+
   // Check if this email exists in SendUsersWithNoAccount.
   const sendUserRecord = await SendUsersWithNoAccount.findOne({ email });
   if (sendUserRecord) {
@@ -780,57 +781,6 @@ exports.login = asyncHandler(async (req, res, next) => {
   }
 
   sendJwt(user, 200, "Login successful", res);
-});
-
-// forgot password
-exports.forgotPassword = asyncHandler(async (req, res, next) => {
-  const email = req.body.email;
-  const user = await User.findOne({ email });
-  if (!user) {
-    next(new errorHandler("user dosent exit", 401));
-  }
-
-  const token = user.resetToken();
-  const resetUrl = `http://localhost:5173/resetpassword/${token}`;
-  const message = `your reset url is ${resetUrl} leave it if you didnt requested for it`;
-  await user.save({ validateBeforeSave: false });
-  try {
-    const mailMessage = await sendEmail(
-      user.email,
-      "password reset mail",
-      message
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "mail sent successfully",
-      mailMessage: mailMessage,
-    });
-  } catch (e) {
-    user.resetPasswordExpire = undefined;
-    user.resetPasswordToken = undefined;
-    await user.save({ validateBeforeSave: false });
-    next(new errorHandler(e.message, 401));
-  }
-});
-
-// reset password
-exports.resetPassword = asyncHandler(async (req, res, next) => {
-  const token = req.params.id;
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-  const user = await User.findOne({
-    resetPasswordToken: hashedToken,
-    resetPasswordExpire: { $gt: Date.now() },
-  });
-  if (!user) {
-    return next(new errorHandler("Reset password is invalid or expired", 400));
-  }
-
-  user.password = req.body.password;
-  user.resetPasswordExpire = undefined;
-  user.resetPasswordToken = undefined;
-  await user.save();
-  sendJwt(user, 201, "reset password successfully", res);
 });
 
 // change password
@@ -1811,36 +1761,36 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
   }
 });
 
-exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
-  const userId = req.user.id;
-  const { username, email, avatar } = req.body;
+// exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
+//   const userId = req.user.id;
+//   const { username, email, avatar } = req.body;
 
-  if (!username && !email && !avatar) {
-    return res.status(400).json({
-      error:
-        "At least one field (username, email, or avatar) must be provided to update.",
-    });
-  }
+//   if (!username && !email && !avatar) {
+//     return res.status(400).json({
+//       error:
+//         "At least one field (username, email, or avatar) must be provided to update.",
+//     });
+//   }
 
-  const updateData = {};
-  if (username) updateData.userName = username;
-  if (email) updateData.email = email;
-  if (avatar) updateData.avatar = avatar;
+//   const updateData = {};
+//   if (username) updateData.userName = username;
+//   if (email) updateData.email = email;
+//   if (avatar) updateData.avatar = avatar;
 
-  const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-    new: true,
-    runValidators: true,
-  });
+//   const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+//     new: true,
+//     runValidators: true,
+//   });
 
-  if (!updatedUser) {
-    return res.status(404).json({ error: "User not found" });
-  }
+//   if (!updatedUser) {
+//     return res.status(404).json({ error: "User not found" });
+//   }
 
-  res.status(200).json({
-    message: "Profile updated successfully",
-    user: updatedUser,
-  });
-});
+//   res.status(200).json({
+//     message: "Profile updated successfully",
+//     user: updatedUser,
+//   });
+// });
 exports.deleteUser = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
   const user = await User.findById(userId);
@@ -1941,12 +1891,13 @@ exports.updateProfileDetails = asyncHandler(async (req, res, next) => {
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const hashedOtp = await bcrypt.hash(otp, 10);
     user.hashedOtp = hashedOtp;
+    user.hashedOtpExpire = Date.now() + 10 * 60 * 1000;
+
     await user.save();
-    sendEmail(email, "Verify your new email", `Your OTP is: ${otp}`);
+    sendEmail(user.email, "Verify your new email", `Your OTP is: ${otp}`);
     if (!username && !avatar) {
       return res.status(200).json({
-        message:
-          "For email change, please verify the OTP sent to your new email.",
+        message: "Sent Otp to email.",
       });
     }
   }
@@ -1967,6 +1918,17 @@ exports.verifyEmailUpdate = asyncHandler(async (req, res, next) => {
   if (!user.hashedOtp) {
     return res.status(400).json({ error: "Signup successfull." });
   }
+
+  // Insert expiry check here using your method
+  if (user.CheckExpiryOfOtp()) {
+    user.hashedOtp = null;
+    user.hashedOtpExpire = null;
+    user.save();
+    return res
+      .status(400)
+      .json({ error: "OTP has expired. Please request a new OTP." });
+  }
+
   const isMatch = await bcrypt.compare(otp, user.hashedOtp);
   if (!isMatch) {
     return res.status(400).json({ error: "Invalid OTP." });
@@ -1974,9 +1936,57 @@ exports.verifyEmailUpdate = asyncHandler(async (req, res, next) => {
 
   user.email = newEmail;
   user.hashedOtp = null;
+  user.hashedOtpExpire = null;
   await user.save();
   res.status(200).json({
     message: "Email updated successfully.",
+    user,
+  });
+});
+
+// forgot password
+exports.forgotPassword = asyncHandler(async (req, res, next) => {
+  const email = req.body.email;
+  const user = await User.findOne({ email });
+  if (!user) {
+    next(new errorHandler("user dosent exit", 401));
+  }
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  const hashedOtp = await bcrypt.hash(otp, 10);
+  user.hashedOtp = hashedOtp;
+  user.hashedOtpExpire = Date.now() + 10 * 60 * 1000;
+  await user.save();
+  sendEmail(email, "Forgot passowrd", `Your OTP is: ${otp}`);
+  return res.status(201).json({ message: "OTP Sent successfully" });
+});
+
+// reset password
+exports.resetPassword = asyncHandler(async (req, res, next) => {
+  const { otp, newPassword, email } = req.body;
+  const user = await User.findOne({ email }).select("+password");
+  if (!user) {
+    next(new errorHandler("user dosent exit", 401));
+  }
+  if (!user.hashedOtpExpire || Date.now() > user.hashedOtpExpire) {
+    user.hashedOtp = null;
+    user.hashedOtpExpire = null;
+    await user.save();
+    return res
+      .status(400)
+      .json({ error: "OTP has expired. Please request a new OTP." });
+  }
+
+  const isMatch = await bcrypt.compare(otp, user.hashedOtp);
+  if (!isMatch) {
+    return res.status(400).json({ error: "Invalid OTP." });
+  }
+
+  user.password = newPassword;
+  user.hashedOtp = null;
+  user.hashedOtpExpire = null;
+  await user.save();
+  res.status(200).json({
+    message: "Pasword updated successfully.",
     user,
   });
 });
