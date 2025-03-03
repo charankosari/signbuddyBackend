@@ -2290,7 +2290,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       fileKey
     )}`;
     const subject = "Agreement Document for Signing";
-
+    const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
     // Send out emails to all recipients.
     emails.forEach((email, index) => {
       sendEmail(
@@ -2300,7 +2300,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
           user.userName,
           user.avatar,
           user.email,
-          previewImageUrl,
+          d.ImageUrls[0],
           redirectUrl,
           names[index]
         )
@@ -2323,7 +2323,6 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         };
       })
     );
-    const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
 
     // Update sender's document entry.
     const docIndex = user.documentsSent.findIndex(
