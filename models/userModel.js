@@ -128,19 +128,6 @@ const userSchema = new mongoose.Schema({
       },
     ],
     default: [],
-    validate: {
-      validator: function (val) {
-        if (this.subscriptionType === "free") {
-          if (this.credits > 10) {
-            return true;
-          }
-          return val.length <= 3;
-        }
-        return true;
-      },
-      message:
-        "Free subscription users can send a maximum of 3 documents unless they have more than 10 credits.",
-    },
   },
   templates: {
     type: [

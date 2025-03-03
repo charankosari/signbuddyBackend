@@ -5,6 +5,7 @@ const sendJwt = require("../utils/jwttokenSend");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
+const DeletedAccounts = require("../models/DeletedAccounts");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
 const { PDFDocument, rgb } = require("pdf-lib");
@@ -1270,14 +1271,26 @@ exports.register = asyncHandler(async (req, res, next) => {
   // Create the user
   const user = await User.create({ email, password });
 
-  // Check if the email exists in PreUser. If so, assign 100 credits.
-  const preUser = await PreUser.findOne({ email });
-  let message = "Registration successful";
-  if (preUser) {
-    user.credits = 100;
+  const deletedAccount = await DeletedAccounts.findOne({ email });
+  if (deletedAccount) {
+    user.credits = deletedAccount.credits;
     message =
-      "Registration successful. You have been rewarded with 100 credits.";
-    await PreUser.deleteOne({ email }); // Now safe since preUser exists.
+      "Registration successful. Your previous credits have been restored.";
+    await DeletedAccounts.deleteOne({ email });
+  } else {
+    // Check if the email exists in PreUser. If so, assign 100 credits.
+    const preUser = await PreUser.findOne({ email });
+    if (preUser) {
+      user.credits = 100;
+      message =
+        "Registration successful. You have been rewarded with 100 credits.";
+      await PreUser.deleteOne({ email });
+    } else {
+      // If neither record exists, assign 30 credits.
+      user.credits = 30;
+      message =
+        "Registration successful. You have been awarded with 30 credits.";
+    }
   }
 
   // Check if this email exists in SendUsersWithNoAccount.
@@ -1343,13 +1356,26 @@ exports.googleAuth = asyncHandler(async (req, res, next) => {
   user = new User({ email, userName: name });
 
   // Check if the email exists in PreUser => grant 100 credits
-  const preUser = await PreUser.findOne({ email });
-  if (preUser) {
-    user.credits = 100;
+  const deletedAccount = await DeletedAccounts.findOne({ email });
+  if (deletedAccount) {
+    user.credits = deletedAccount.credits;
     message =
-      "Registration successful. You have been rewarded with 100 credits.";
+      "Registration successful. Your previous credits have been restored.";
+    await DeletedAccounts.deleteOne({ email });
   } else {
-    message = "Registration successful";
+    // Check if the email exists in PreUser. If so, assign 100 credits.
+    const preUser = await PreUser.findOne({ email });
+    if (preUser) {
+      user.credits = 100;
+      message =
+        "Registration successful. You have been rewarded with 100 credits.";
+      await PreUser.deleteOne({ email });
+    } else {
+      // If neither record exists, assign 30 credits.
+      user.credits = 30;
+      message =
+        "Registration successful. You have been awarded with 30 credits.";
+    }
   }
 
   // Check if this email exists in SendUsersWithNoAccount
@@ -2226,13 +2252,12 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized user" });
     }
-    if (user.subscriptionType === "free" && user.documentsSent.length >= 3) {
+    if (user.subscriptionType === "free") {
       if (user.credits >= 10) {
         user.credits -= 10;
       } else {
         return res.status(403).json({
-          error:
-            "Free subscription users can send a maximum of 3 documents unless they have at least 10 credits.",
+          error: "You do not have enough credits to send.",
         });
       }
     }
@@ -2441,6 +2466,10 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
       console.error("Error deleting S3 objects:", error);
     }
   }
+  await DeletedAccounts.create({
+    email: user.email,
+    credits: user.credits,
+  });
 
   await User.findByIdAndDelete(userId);
   res
