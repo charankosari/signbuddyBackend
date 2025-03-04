@@ -1776,23 +1776,15 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       document.signedDocument = pdfUpload.url;
       if (document.CC && document.CC.length > 0) {
         try {
-          const pdfResponse = await axios.get(pdfUpload.url, {
-            responseType: "arraybuffer",
-          });
-          const pdfBuffer = Buffer.from(pdfResponse.data, "binary");
+          const documentUrl = pdfUpload.url;
+          const body = `
+  <p>Please click the link below to download the final signed document:</p>
+  <p><a href="${documentUrl}" target="_blank">Download Document</a></p>
+`;
+          await sendEmail(ccEmail, "Final Signed Document", body);
+
           for (const ccEmail of document.CC) {
-            await sendEmail(
-              ccEmail,
-              "Final Signed Document",
-              "Please find attached the final signed document.",
-              [
-                {
-                  filename: `${documentKey.split("/").pop()}.pdf`,
-                  content: pdfBuffer,
-                  contentType: "application/pdf",
-                },
-              ]
-            );
+            await sendEmail(ccEmail, "Final Signed Document CC", body);
           }
         } catch (err) {
           console.error("Error sending final document to CC emails:", err);
