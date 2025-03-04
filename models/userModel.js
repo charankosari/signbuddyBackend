@@ -8,7 +8,7 @@ const { type } = require("os");
 const CreditHistorySchema = new mongoose.Schema({
   thingUsed: {
     type: String,
-    enum: ["ai", "documentSent"],
+    enum: ["ai", "documentSent", "reminder"],
     required: true,
   },
   creditsUsed: {

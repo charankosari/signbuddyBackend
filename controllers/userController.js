@@ -1989,9 +1989,27 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
 });
 
 exports.sendReminder = asyncHandler(async (req, res, next) => {
-  const user = User.findById(req.user.id);
+  const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
+
   try {
+    // Check and deduct credit if the user is on a free subscription
+    if (user.subscriptionType === "free") {
+      if (user.credits < 1) {
+        return res
+          .status(403)
+          .json({
+            message: "You do not have enough credits to send a reminder.",
+          });
+      }
+      user.credits -= 1;
+      user.creditsHistory.push({
+        thingUsed: "reminder",
+        creditsUsed: 1,
+        timestamp: new Date(),
+      });
+    }
+
     const { emails, names, previewImageUrl, redirectUrl } = req.body;
 
     if (!Array.isArray(emails) || !Array.isArray(names)) {
@@ -1999,32 +2017,42 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
         .status(400)
         .json({ message: "Emails and names must be provided as arrays" });
     }
-
     if (emails.length !== names.length) {
-      return res
-        .status(400)
-        .json({ message: "Emails and names arrays must have the same length" });
+      return res.status(400).json({
+        message: "Emails and names arrays must have the same length",
+      });
     }
 
-    const subject = "Reminder: Pending Document";
+    // Retrieve custom email details from the user model.
+    // Assumes user.emailBody is an object with subject and emailBody properties.
+    const customEmail = user.emailBody;
+    if (!customEmail || !customEmail.subject || !customEmail.emailBody) {
+      return res
+        .status(400)
+        .json({ message: "Custom email details not set in user profile" });
+    }
 
+    // Loop through recipients and send the reminder using the custom email details.
     for (let i = 0; i < emails.length; i++) {
       const email = emails[i];
-      const userName = names[i] || "User";
-
+      const recipientName = names[i] || "User";
       await sendEmail(
         email,
-        subject,
+        customEmail.subject,
         emailBody(
-          user.name,
+          user.userName,
           user.avatar,
           user.email,
           previewImageUrl,
           redirectUrl,
-          userName
+          recipientName,
+          customEmail.emailBody
         )
       );
     }
+
+    // Save the updated user document with deducted credits and new history entry.
+    await user.save();
 
     res.status(200).json({ message: "Reminder sent successfully" });
   } catch (error) {
