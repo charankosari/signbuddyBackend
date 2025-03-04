@@ -73,7 +73,6 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
-
   creditsUsedInMembership: { type: Number, default: 0 },
   agreements: {
     type: [String],
@@ -86,6 +85,12 @@ const userSchema = new mongoose.Schema({
         documentName: { type: String },
         ImageUrls: { type: [String], default: [] },
         signedDocument: { type: String, default: null },
+        CC: { type: [String], default: [] },
+        CustomEmail: {
+          subject: { type: String, default: null },
+          emailBody: { type: String, default: null },
+        },
+
         recipients: [
           {
             email: { type: String, required: true },

@@ -2083,6 +2083,16 @@ exports.deleteDocument = asyncHandler(async (req, res, next) => {
   }
 
   user.documentsSent.splice(docIndex, 1);
+  if (type === "draft") {
+    user.drafts = user.drafts.filter((draft) => draft.fileKey !== key);
+    const draftDeleteResult = await deleteObject(key);
+    if (draftDeleteResult.status !== 204) {
+      console.error(
+        `Failed to delete draft file from S3 with key: ${key}`,
+        draftDeleteResult
+      );
+    }
+  }
   await user.save();
 
   res.status(200).json({ message: "Document deleted successfully" });
@@ -2214,41 +2224,44 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
   }
 
   const date = new Date();
-  const newDocument = {
-    documentKey: fileKey,
-    ImageUrls: imageUrls,
-    documentName: originalName,
-    sentAt: date,
-  };
+  if (fileKey) {
+    const newDocument = {
+      documentKey: fileKey,
+      ImageUrls: imageUrls,
+      documentName: originalName,
+      sentAt: date,
+    };
 
-  // Also create a new draft object to push into user.drafts.
-  const newDraft = {
-    fileKey: fileKey,
-    fileUrl: docUrl,
-    uploadedAt: date,
-  };
+    // Also create a new draft object to push into user.drafts.
+    const newDraft = {
+      fileKey: fileKey,
+      fileUrl: docUrl,
+      uploadedAt: date,
+    };
 
-  // Update the user's documentsSent and drafts arrays.
-  const updatedUser = await User.findByIdAndUpdate(
-    req.user.id,
-    {
-      $push: {
-        documentsSent: newDocument,
-        drafts: newDraft,
+    // Update the user's documentsSent and drafts arrays.
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        $push: {
+          documentsSent: newDocument,
+          drafts: newDraft,
+        },
       },
-    },
-    { new: true, runValidators: true }
-  );
-  console.log(updatedUser);
+      { new: true, runValidators: true }
+    );
+    console.log(updatedUser);
 
-  res.status(200).json({
-    message: "Converted successfully",
-    fileKey,
-    docUrl,
-    imageUrls,
-    previewImageUrl: imageUrls,
-    originalName,
-  });
+    res.status(200).json({
+      message: "Converted successfully",
+      fileKey,
+      docUrl,
+      imageUrls,
+      previewImageUrl: imageUrls,
+      originalName,
+    });
+  }
+  req.status(400).json({ error: "no required details provided" });
 });
 
 exports.sendAgreements = asyncHandler(async (req, res, next) => {
@@ -2273,7 +2286,8 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       !req.body.emails ||
       !req.body.names ||
       req.body.emails === null ||
-      req.body.names === null
+      req.body.names === null ||
+      Array.isArray(req.body.emails)
     ) {
       return res.status(400).json({ error: "Emails and names are required" });
     }
