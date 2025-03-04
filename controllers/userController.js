@@ -2443,7 +2443,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       return res.status(400).json({ error: "Invalid placeholders format" });
     }
 
-    const redirectUrl = `https://signbuddy.in?document=${encodeURIComponent(
+    const redirectUrl = `https://signbuddy.in/sign/agreements/${encodeURIComponent(
       fileKey
     )}`;
     const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
