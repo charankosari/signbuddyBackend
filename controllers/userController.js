@@ -1962,12 +1962,6 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       };
     });
 
-    const draftsList = user.drafts.map((draft) => ({
-      name: draft.fileKey,
-      url: draft.fileUrl,
-      time: formatTimeAgo(new Date(draft.uploadedAt)),
-    }));
-
     const recipientStatuses = recipients.map((r) => r.status);
     let status = "pending";
 
@@ -1987,10 +1981,15 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       recipients: recipientDetails,
       signedDocument,
       placeholders: placeholders,
-      drafts: draftsList,
     };
   });
-
+  const draftsList = user.drafts.map((draft) => ({
+    name: draft.fileKey,
+    url: draft.fileUrl,
+    placeholders: draft.placeholders,
+    recipients: draft.recipients,
+    time: formatTimeAgo(new Date(draft.uploadedAt)),
+  }));
   const incomingAgreements = user.incomingAgreements.map((agreement) => ({
     agreementKey: agreement.agreementKey,
     senderEmail: agreement.senderEmail,
@@ -2001,7 +2000,13 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     status: agreement.status,
   }));
 
-  res.status(200).json({ recentDocuments: recentDocs, incomingAgreements });
+  res
+    .status(200)
+    .json({
+      recentDocuments: recentDocs,
+      drafts: draftsList,
+      incomingAgreements,
+    });
 });
 
 exports.sendReminder = asyncHandler(async (req, res, next) => {
