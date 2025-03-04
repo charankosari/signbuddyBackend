@@ -1925,7 +1925,7 @@ exports.createAgreement = asyncHandler(async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: "User not found" });
     }
-    if (user.subscriptionType === "free" && user.credits === 0) {
+    if (user.subscription.type === "free" && user.credits === 0) {
       return res
         .status(400)
         .json({ error: "Free users are not able to use AI features " });
@@ -1940,7 +1940,7 @@ exports.createAgreement = asyncHandler(async (req, res) => {
     }
     const creditsRequired = type === "section" ? 4 : 10;
     const now = new Date();
-    if (user.subscriptionType !== "free") {
+    if (user.subscription.type !== "free") {
       if (
         !user.cooldownPeriod &&
         user.creditsUsedInMembership + creditsRequired > 4000
@@ -1957,7 +1957,7 @@ exports.createAgreement = asyncHandler(async (req, res) => {
         user.credits -= creditsRequired;
       }
     } else {
-      if (user.subscriptionType === "free" && user.credits < creditsRequired) {
+      if (user.subscription.type === "free" && user.credits < creditsRequired) {
         return res.status(403).json({ error: "Insufficient credits." });
       }
 
@@ -2093,7 +2093,7 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
 
   try {
     // Check and deduct credit if the user is on a free subscription
-    if (user.subscriptionType === "free") {
+    if (user.subscription.type === "free") {
       if (user.credits < 1) {
         return res.status(403).json({
           message: "You do not have enough credits to send a reminder.",
@@ -2402,7 +2402,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized user" });
     }
-    if (user.subscriptionType === "free") {
+    if (user.subscription.type === "free") {
       if (user.credits >= 10) {
         user.credits -= 10;
       } else {
