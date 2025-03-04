@@ -2690,3 +2690,38 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     user,
   });
 });
+
+exports.updateDraft = asyncHandler(async (req, res, next) => {
+  const { fileKey, updatedDraft } = req.body;
+  if (!fileKey || !updatedDraft) {
+    return res
+      .status(400)
+      .json({ error: "Both fileKey and updatedDraft data are required" });
+  }
+
+  // Find the user document using the authenticated user's ID
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  // Locate the index of the draft in the drafts array by fileKey
+  const draftIndex = user.drafts.findIndex(
+    (draft) => draft.fileKey === fileKey
+  );
+  if (draftIndex === -1) {
+    return res.status(404).json({ error: "Draft not found" });
+  }
+
+  // Replace the entire draft object with the updated data.
+  // Ensure the fileKey is maintained.
+  user.drafts[draftIndex] = { ...updatedDraft, fileKey };
+
+  // Save the updated user document.
+  await user.save();
+
+  res.status(200).json({
+    message: "Draft updated successfully",
+    draft: user.drafts[draftIndex],
+  });
+});

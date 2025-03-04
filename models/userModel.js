@@ -151,6 +151,44 @@ const userSchema = new mongoose.Schema({
         fileKey: { type: String, required: true },
         fileUrl: { type: String, required: true },
         uploadedAt: { type: Date, default: Date.now },
+        recipients: [
+          {
+            email: { type: String },
+            status: {
+              type: String,
+              enum: ["pending", "signed", "viewed", "rejected"],
+            },
+            avatar: {
+              type: String,
+            },
+            userName: { type: String },
+            statusTime: { type: Date, default: Date.now },
+          },
+        ],
+        placeholders: {
+          type: [
+            {
+              placeholderNumber: { type: Number },
+              position: {
+                x: { type: String },
+                y: { type: String },
+              },
+              type: {
+                type: String,
+                enum: ["text", "signature", "date"],
+              },
+              size: {
+                width: { type: String },
+                height: { type: String },
+              },
+              assignedTo: { type: String },
+              email: { type: String },
+              pageNumber: { type: Number },
+              value: { type: String },
+            },
+          ],
+          default: [],
+        },
       },
     ],
     default: [],

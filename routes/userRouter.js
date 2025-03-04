@@ -26,6 +26,7 @@ const {
   verifyEmailUpdate,
   deleteUser,
   changePassword,
+  updateDraft,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -56,6 +57,7 @@ router
   .post(isAuthorized, upload.single("file"), agreeDocument);
 
 router.route("/vieweddocument").post(isAuthorized, viewedDocument);
+router.route("/drafts/update").post(isAuthorized, updateDraft);
 router.route("/generatecontent").post(isAuthorized, createAgreement);
 router.route("/getEmails").post(getEmails);
 router.route("/getavatars").get(getAvatars);
