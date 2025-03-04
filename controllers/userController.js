@@ -6,6 +6,7 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const DeletedAccounts = require("../models/DeletedAccounts");
+const Plans = require("../models/PlansSchema");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
 const { PDFDocument, rgb } = require("pdf-lib");
@@ -2000,13 +2001,11 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     status: agreement.status,
   }));
 
-  res
-    .status(200)
-    .json({
-      recentDocuments: recentDocs,
-      drafts: draftsList,
-      incomingAgreements,
-    });
+  res.status(200).json({
+    recentDocuments: recentDocs,
+    drafts: draftsList,
+    incomingAgreements,
+  });
 });
 
 exports.sendReminder = asyncHandler(async (req, res, next) => {
@@ -2720,5 +2719,42 @@ exports.updateDraft = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     message: "Draft updated successfully",
     draft: user.drafts[draftIndex],
+  });
+});
+
+// exports.createOrUpdatePlans = asyncHandler(async (req, res, next) => {
+//   const { creditPackages, subscriptionPlans } = req.body;
+//   if (!creditPackages || !subscriptionPlans) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Both creditPackages and subscriptionPlans are required",
+//     });
+//   }
+
+//   // Check if a Plans document already exists
+//   let plans = await Plans.findOne({});
+//   if (plans) {
+//     // Update existing document
+//     plans.creditPackages = creditPackages;
+//     plans.subscriptionPlans = subscriptionPlans;
+//   } else {
+//     // Create a new Plans document
+//     plans = new Plans({ creditPackages, subscriptionPlans });
+//   }
+//   await plans.save();
+//   res.status(200).json({
+//     success: true,
+//     plans,
+//   });
+// });
+exports.getPlans = asyncHandler(async (req, res, next) => {
+  const plans = await Plans.findOne({});
+  if (!plans) {
+    return res.status(404).json({ success: false, message: "Plans not found" });
+  }
+
+  res.status(200).json({
+    success: true,
+    plans,
   });
 });

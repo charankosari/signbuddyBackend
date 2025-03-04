@@ -27,6 +27,8 @@ const {
   deleteUser,
   changePassword,
   updateDraft,
+  // createOrUpdatePlans,
+  getPlans,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -55,7 +57,6 @@ router.route("/deleteagreement").delete(isAuthorized, deleteDocument);
 router
   .route("/agreedocument")
   .post(isAuthorized, upload.single("file"), agreeDocument);
-
 router.route("/vieweddocument").post(isAuthorized, viewedDocument);
 router.route("/drafts/update").post(isAuthorized, updateDraft);
 router.route("/generatecontent").post(isAuthorized, createAgreement);
@@ -66,5 +67,7 @@ router.route("/getcredits").get(isAuthorized, getCredits);
 router
   .route("/converttoimages")
   .post(isAuthorized, upload.single("file"), ConvertToImages);
+router.route("/getplans").get(getPlans);
+// router.route("/updateplans").post(createOrUpdatePlans);
 
 module.exports = router;
