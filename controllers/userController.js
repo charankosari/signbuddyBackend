@@ -2033,7 +2033,7 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
 });
 
 exports.deleteDocument = asyncHandler(async (req, res, next) => {
-  const { key } = req.body;
+  const { key, type } = req.body;
   if (!key) {
     return res.status(400).json({ error: "Missing document key" });
   }
