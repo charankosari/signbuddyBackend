@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { type } = require("os");
+const { timeStamp } = require("console");
 
 const CreditHistorySchema = new mongoose.Schema({
   thingUsed: {
@@ -68,6 +69,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["free", "anually", "monthly"],
     default: "free",
+    timeStamp: { type: Date, default: Date.now },
+    endDate: { type: Date, default: null },
   },
   cooldownPeriod: {
     type: Date,

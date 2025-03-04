@@ -2227,7 +2227,6 @@ exports.getCredits = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id)
     .select("credits")
     .select("+creditsHistory");
-
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
@@ -2235,6 +2234,7 @@ exports.getCredits = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     credits: user.credits,
     creditsHistory: user.creditsHistory,
+    subsription: user.subscriptionType,
   });
 });
 
@@ -2849,3 +2849,29 @@ exports.getIp = (req, res, next) => {
     next(error);
   }
 };
+exports.createOptions = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.body.id);
+  if (!user) {
+    next(new errorHandler("user dosent exit", 401));
+  }
+
+  const options = {
+    key: null,
+    amount: null,
+    currency: null,
+    name: "Sign Buddy",
+    description: null,
+    order_id: orderData.order.id,
+    handler: async function (response) {
+      // Payment verification logic here
+    },
+    prefill: {
+      name: "Customer Name",
+      email: "customer@example.com",
+      contact: "9876543210",
+    },
+    theme: {
+      color: "#F37254",
+    },
+  };
+});
