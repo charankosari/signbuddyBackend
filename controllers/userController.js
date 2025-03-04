@@ -1658,7 +1658,10 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     }
     recipient.status = "signed";
     recipient.statusTime = new Date();
-
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
+    // Save the IP address as the recipient's signed IP
+    recipient.recipientSignedIp = ipAddress;
     for (const phReq of placeholdersFromReq) {
       const { email, type, value } = phReq;
       const docPlaceholder = document.placeholders.find(
@@ -1836,9 +1839,12 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
         .status(200)
         .json({ message: "Document already marked as viewed" });
     }
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
 
     recipient.status = "viewed";
     recipient.statusTime = new Date();
+    recipient.recipientViewedIp = ipAddress;
     await sender.save();
 
     const subject = "viewed document";
@@ -2276,12 +2282,15 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
   }
 
   const date = new Date();
+  const ipAddress =
+    req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
   if (fileKey) {
     const newDocument = {
       documentKey: fileKey,
       ImageUrls: imageUrls,
       documentName: originalName,
       sentAt: date,
+      documentCreationIp: ipAddress,
     };
 
     // Also create a new draft object to push into user.drafts.
@@ -2291,6 +2300,8 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       uploadedAt: date,
     };
 
+    // Save the IP address as the recipient's signed IP
+    // user.documentsSent.
     // Update the user's documentsSent and drafts arrays.
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -2375,8 +2386,10 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       fileKey
     )}`;
     const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
-    // Send out emails to all recipients.
-    emails.forEach((email, index) => {
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
+    d.documentSentIp = ipAddress;
+    d.emails.forEach((email, index) => {
       sendEmail(
         email,
         subjectB,
