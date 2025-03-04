@@ -1831,10 +1831,16 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
     if (!recipient) {
       return res.status(404).json({ error: "Recipient not found in document" });
     }
+    if (recipient.status === "viewed") {
+      return res
+        .status(200)
+        .json({ message: "Document already marked as viewed" });
+    }
 
     recipient.status = "viewed";
     recipient.statusTime = new Date();
     await sender.save();
+
     const subject = "viewed document";
     const body = `<h1>${user.userName} viewed document </h1>`;
     sendEmail(senderEmail, subject, body);

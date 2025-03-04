@@ -104,6 +104,7 @@ const userSchema = new mongoose.Schema({
             },
             userName: { type: String },
             statusTime: { type: Date, default: Date.now },
+            viewed: { type: Boolean, default: false },
           },
         ],
         placeholders: {
@@ -162,6 +163,7 @@ const userSchema = new mongoose.Schema({
               type: String,
             },
             userName: { type: String },
+
             statusTime: { type: Date, default: Date.now },
           },
         ],
