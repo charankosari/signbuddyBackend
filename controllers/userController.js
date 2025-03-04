@@ -2225,8 +2225,9 @@ exports.deleteDocument = asyncHandler(async (req, res, next) => {
 
 exports.getCredits = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id)
-    .select("credits")
+    .select("credits subscription")
     .select("+creditsHistory");
+
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
@@ -2234,7 +2235,7 @@ exports.getCredits = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     credits: user.credits,
     creditsHistory: user.creditsHistory,
-    subsription: user.subscriptionType,
+    subsription: user.subscription,
   });
 });
 

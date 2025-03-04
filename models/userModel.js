@@ -65,13 +65,16 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  subscriptionType: {
-    type: String,
-    enum: ["free", "anually", "monthly"],
-    default: "free",
-    timeStamp: { type: Date, default: Date.now },
+  subscription: {
+    type: {
+      type: String,
+      enum: ["free", "annually", "monthly"],
+      default: "free",
+    },
+    timeStamp: { type: Date, default: Date.now }, // use Date.now without parentheses
     endDate: { type: Date, default: null },
   },
+
   cooldownPeriod: {
     type: Date,
     default: null,
