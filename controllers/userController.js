@@ -2011,65 +2011,74 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     console.error("Error fetching avatars:", error);
   }
 
-  const recentDocs = user.documentsSent.map((doc) => {
-    const {
-      documentKey,
-      documentName,
-      ImageUrls,
-      recipients,
-      placeholders,
-      signedDocument,
-    } = doc;
-    const recipientDetails = recipients.map((r) => {
-      const randomAvatar =
-        !r.avatar && avatars.length > 0
-          ? avatars[Math.floor(Math.random() * avatars.length)].url
-          : r.avatar;
+  const recentDocs = user.documentsSent
+    .filter((doc) => doc.documentKey) // Ensure documentKey is not empty
+    .map((doc) => {
+      const {
+        documentKey,
+        documentName,
+        ImageUrls,
+        recipients,
+        placeholders,
+        signedDocument,
+      } = doc;
+
+      const recipientDetails = recipients.map((r) => {
+        const randomAvatar =
+          !r.avatar && avatars.length > 0
+            ? avatars[Math.floor(Math.random() * avatars.length)].url
+            : r.avatar;
+        return {
+          name: r.userName || r.email,
+          email: r.email,
+          updates: `${formatTimeAgo(new Date(r.statusTime))} `,
+          recipientsAvatar: randomAvatar,
+        };
+      });
+
+      const recipientStatuses = recipients.map((r) => r.status);
+      let status = "pending";
+
+      if (!recipientStatuses || recipientStatuses.length === 0) {
+        status = "draft";
+      } else if (recipientStatuses.every((s) => s === "signed")) {
+        status = "completed";
+      } else if (recipientStatuses.includes("viewed")) {
+        status = "viewed";
+      }
+
       return {
-        name: r.userName || r.email,
-        email: r.email,
-        updates: `${formatTimeAgo(new Date(r.statusTime))} `,
-        recipientsAvatar: randomAvatar,
+        documentKey,
+        title: documentName,
+        documentUrl: ImageUrls,
+        status,
+        recipients: recipientDetails,
+        signedDocument,
+        placeholders,
       };
     });
 
-    const recipientStatuses = recipients.map((r) => r.status);
-    let status = "pending";
+  const draftsList = user.drafts
+    .filter((draft) => draft.fileKey) // Ensure fileKey is not empty
+    .map((draft) => ({
+      name: draft.fileKey,
+      url: draft.fileUrl,
+      placeholders: draft.placeholders,
+      recipients: draft.recipients,
+      time: formatTimeAgo(new Date(draft.uploadedAt)),
+    }));
 
-    if (!recipientStatuses || recipientStatuses.length === 0) {
-      status = "draft";
-    } else if (recipientStatuses.every((s) => s === "signed")) {
-      status = "completed";
-    } else if (recipientStatuses.includes("viewed")) {
-      status = "viewed";
-    }
-
-    return {
-      documentKey,
-      title: documentName,
-      documentUrl: ImageUrls,
-      status,
-      recipients: recipientDetails,
-      signedDocument,
-      placeholders: placeholders,
-    };
-  });
-  const draftsList = user.drafts.map((draft) => ({
-    name: draft.fileKey,
-    url: draft.fileUrl,
-    placeholders: draft.placeholders,
-    recipients: draft.recipients,
-    time: formatTimeAgo(new Date(draft.uploadedAt)),
-  }));
-  const incomingAgreements = user.incomingAgreements.map((agreement) => ({
-    agreementKey: agreement.agreementKey,
-    senderEmail: agreement.senderEmail,
-    imageUrls: agreement.imageUrls,
-    title: agreement.title,
-    placeholders: agreement.placeholders,
-    receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
-    status: agreement.status,
-  }));
+  const incomingAgreements = user.incomingAgreements
+    .filter((agreement) => agreement.agreementKey) // Ensure agreementKey is not empty
+    .map((agreement) => ({
+      agreementKey: agreement.agreementKey,
+      senderEmail: agreement.senderEmail,
+      imageUrls: agreement.imageUrls,
+      title: agreement.title,
+      placeholders: agreement.placeholders,
+      receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
+      status: agreement.status,
+    }));
 
   res.status(200).json({
     recentDocuments: recentDocs,
