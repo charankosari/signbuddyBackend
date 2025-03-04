@@ -2406,11 +2406,6 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     if (!req.body.emails || !req.body.names) {
       return res.status(400).json({ error: "Emails and names are required" });
     }
-    if (!req.body.placeholders.email || !req.body.placeholders.assignedTo) {
-      return res
-        .status(400)
-        .json({ error: "placeholder emails and names are required" });
-    }
 
     const previewImageUrl = req.body.previewImageUrl;
     const customEmail = req.body.customEmail;
