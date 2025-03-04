@@ -1774,6 +1774,30 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       }
       console.log("Final signed PDF URL:", pdfUpload.url);
       document.signedDocument = pdfUpload.url;
+      if (document.CC && document.CC.length > 0) {
+        try {
+          const pdfResponse = await axios.get(pdfUpload.url, {
+            responseType: "arraybuffer",
+          });
+          const pdfBuffer = Buffer.from(pdfResponse.data, "binary");
+          for (const ccEmail of document.CC) {
+            await sendEmail(
+              ccEmail,
+              "Final Signed Document",
+              "Please find attached the final signed document.",
+              [
+                {
+                  filename: `${documentKey.split("/").pop()}.pdf`,
+                  content: pdfBuffer,
+                  contentType: "application/pdf",
+                },
+              ]
+            );
+          }
+        } catch (err) {
+          console.error("Error sending final document to CC emails:", err);
+        }
+      }
     }
     await senderUser.save();
     document.res.status(200).json({
@@ -1996,11 +2020,9 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
     // Check and deduct credit if the user is on a free subscription
     if (user.subscriptionType === "free") {
       if (user.credits < 1) {
-        return res
-          .status(403)
-          .json({
-            message: "You do not have enough credits to send a reminder.",
-          });
+        return res.status(403).json({
+          message: "You do not have enough credits to send a reminder.",
+        });
       }
       user.credits -= 1;
       user.creditsHistory.push({
