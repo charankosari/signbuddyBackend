@@ -1707,7 +1707,31 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     const allSigned = document.recipients.every((r) => r.status === "signed");
     if (allSigned) {
       const pdfDoc = await PDFDocument.create();
+      // Embed Helvetica font for footer and text overlays.
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontSize = 12;
+      const margin = 20; // Margin from page edge for the footer.
 
+      // Load the check icon image from assets.
+      // IMPORTANT: Ensure this file is a PNG (or convert your SVG to PNG externally).
+      const checkIconPath = path.join(__dirname, "../assets/check.svg");
+      let checkIconBytes;
+      try {
+        checkIconBytes = fs.readFileSync(checkIconPath);
+      } catch (err) {
+        console.error("Error reading check icon file:", err);
+        // Fallback to a simple text icon if necessary.
+        checkIconBytes = null;
+      }
+      let checkIconImage;
+      if (checkIconBytes) {
+        checkIconImage = await pdfDoc.embedPng(checkIconBytes);
+      }
+      // Define dimensions for the icon.
+      const iconWidth = 20;
+      const iconHeight = 20;
+
+      // Process each page image.
       for (const pageImageUrl of document.ImageUrls) {
         const response = await axios.get(pageImageUrl, {
           responseType: "arraybuffer",
@@ -1717,7 +1741,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         const pageHeight = embeddedPage.height;
         const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-        // Draw the original page image
+        // Draw the original page image.
         page.drawImage(embeddedPage, {
           x: 0,
           y: 0,
@@ -1725,7 +1749,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           height: pageHeight,
         });
 
-        // Overlay placeholders
+        // Overlay placeholders.
         for (const ph of document.placeholders) {
           if (ph.value) {
             const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
@@ -1739,9 +1763,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
                 const sigResponse = await axios.get(ph.value, {
                   responseType: "arraybuffer",
                 });
-                // Choose embedPng or embedJpg based on your image format
                 const embeddedSig = await pdfDoc.embedPng(sigResponse.data);
-                // Removed the reference to undefined variable sigBytes
                 page.drawImage(embeddedSig, {
                   x: posX,
                   y: posY,
@@ -1755,19 +1777,56 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
                 );
               }
             } else if (ph.type === "text" || ph.type === "date") {
-              // Draw text
               page.drawText(ph.value, {
                 x: posX,
                 y: posY,
                 size: 12,
+                font: font,
                 color: rgb(0, 0, 0),
               });
             }
           }
         }
+
+        // Add footer at the bottom-right of the page.
+        // Footer: icon + a 5px gap + "Secured via signbuddy" text.
+        const footerText = "Secured via signbuddy";
+        const textWidth = font.widthOfTextAtSize(footerText, fontSize);
+        const totalFooterWidth = iconWidth + 5 + textWidth;
+        // Position footer with margin from right and bottom.
+        const footerX = pageWidth - totalFooterWidth - margin;
+        const footerY = margin; // Bottom margin (since PDF origin is bottom-left).
+
+        // Draw the icon if available.
+        if (checkIconImage) {
+          page.drawImage(checkIconImage, {
+            x: footerX,
+            y: footerY,
+            width: iconWidth,
+            height: iconHeight,
+          });
+        } else {
+          // Fallback: draw a Unicode check mark.
+          page.drawText("✓", {
+            x: footerX,
+            y: footerY,
+            size: iconHeight,
+            font: font,
+            color: rgb(0, 0, 0),
+          });
+        }
+        // Draw the footer text next to the icon with a 5px gap.
+        page.drawText(footerText, {
+          x: footerX + iconWidth + 5,
+          // Adjust y position to vertically center text with the icon.
+          y: footerY + (iconHeight - fontSize) / 2,
+          size: fontSize,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
       }
 
-      // Save the PDF and upload
+      // Save the PDF and upload.
       const pdfBytes = await pdfDoc.save();
       const pdfKey = `signedDocuments/${documentKey}.pdf`;
       const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
@@ -1782,11 +1841,9 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         try {
           const documentUrl = pdfUpload.url;
           const body = `
-  <p>Please click the link below to download the final signed document:</p>
-  <p><a href="${documentUrl}" target="_blank">Download Document</a></p>
-`;
-          await sendEmail(ccEmail, "Final Signed Document", body);
-
+            <p>Please click the link below to download the final signed document:</p>
+            <p><a href="${documentUrl}" target="_blank">Download Document</a></p>
+          `;
           for (const ccEmail of document.CC) {
             await sendEmail(ccEmail, "Final Signed Document CC", body);
           }
@@ -1795,6 +1852,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         }
       }
     }
+
     await senderUser.save();
     document.res.status(200).json({
       message: "Placeholders updated successfully",
@@ -2777,3 +2835,14 @@ exports.getPlans = asyncHandler(async (req, res, next) => {
     plans,
   });
 });
+
+exports.getIp = (req, res, next) => {
+  try {
+    // Get the IP from x-forwarded-for header if present; otherwise, use req.ip.
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
+    res.json({ ip: ipAddress });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -29,6 +29,7 @@ const {
   updateDraft,
   // createOrUpdatePlans,
   getPlans,
+  getIp,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -69,5 +70,5 @@ router
   .post(isAuthorized, upload.single("file"), ConvertToImages);
 router.route("/getplans").get(getPlans);
 // router.route("/updateplans").post(createOrUpdatePlans);
-
+router.route("/getip").get(getIp);
 module.exports = router;
