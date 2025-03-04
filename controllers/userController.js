@@ -2403,13 +2403,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     }
 
     // Ensure required fields are provided
-    if (
-      !req.body.emails ||
-      !req.body.names ||
-      req.body.emails === null ||
-      req.body.names === null ||
-      Array.isArray(req.body.emails)
-    ) {
+    if (!req.body.emails || !req.body.names) {
       return res.status(400).json({ error: "Emails and names are required" });
     }
 
