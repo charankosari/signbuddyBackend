@@ -2293,8 +2293,9 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     }
 
     const previewImageUrl = req.body.previewImageUrl;
-    const emailB = req.body.emailBody;
-    const subjectB = req.body.emailSubject;
+    const customEmail = req.body.customEmail;
+    const emailB = customEmail.emailBody;
+    const subjectB = customEmail.subject;
     const fileKey = req.body.fileKey;
     const emails =
       typeof req.body.emails === "string"
@@ -2304,6 +2305,10 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       typeof req.body.names === "string"
         ? Object.values(JSON.parse(req.body.names))
         : Object.values(req.body.names);
+    const ccEmails =
+      typeof req.body.CC === "string"
+        ? Object.values(JSON.parse(req.body.CC))
+        : req.body.CC;
     let placeholders;
     try {
       placeholders =
@@ -2363,6 +2368,11 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         sentAt: date,
         recipients: recipients,
         placeholders: placeholders,
+        CC: ccEmails,
+        CustomEmail: {
+          subject: customEmail.subject,
+          emailBody: customEmail.emailBody,
+        },
       };
     }
 
