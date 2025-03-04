@@ -2441,7 +2441,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     const ipAddress =
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
     d.documentSentIp = ipAddress;
-    d.emails.forEach((email, index) => {
+    emails.forEach((email, index) => {
       sendEmail(
         email,
         subjectB,
