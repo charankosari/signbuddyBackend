@@ -91,7 +91,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   // Find the payment record
   const paymentRecord = await Payment.findOne({
     paymentId: razorpay_order_id,
-    user: userId,
+    user: user.id,
   });
   if (!paymentRecord) {
     return res.status(400).json({ error: "Payment record not found" });
