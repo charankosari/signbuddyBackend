@@ -19,39 +19,40 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
     return res.status(400).json({ success: false, message: "User not found" });
   }
 
-  const { userId, planType, creditPackage, subscriptionPlan } = req.body;
+  const { planType, creditPackage, subscriptionPlan } = req.body;
   let amount = 0;
   let credits = 0;
   let subscriptionType = null;
 
-  // Validate pricing based on the PlansSchema
+  // First, get the Plans document (assuming there's only one)
+  const plansDoc = await Plan.findOne({});
+  if (!plansDoc) {
+    return res.status(400).json({ error: "Plans not configured" });
+  }
+
+  // Then, for credits, find the matching credit package inside the array
   if (planType === "credits") {
-    // Fetch plan details from PlansSchema based on the provided credit package
-    const plan = await Plan.findOne({
-      planType: "credits",
-      package: creditPackage,
-    });
-    if (!plan) {
+    const selectedPackage = plansDoc.creditPackages.find(
+      (pkg) => pkg.credits.toString() === creditPackage
+    );
+    if (!selectedPackage) {
       return res.status(400).json({ error: "Invalid credit package" });
     }
-    // Use the price and credits stored in the database
-    amount = plan.price * 100; // Convert rupees to paise
-    credits = plan.credits;
+    amount = selectedPackage.price * 100; // Convert rupees to paise
+    credits = selectedPackage.credits;
   } else if (planType === "subscription") {
-    // Fetch plan details for subscriptions
-    const plan = await Plan.findOne({
-      planType: "subscription",
-      subscriptionPlan: subscriptionPlan,
-    });
-    if (!plan) {
+    // Similar logic for subscription plans
+    const selectedPlan = plansDoc.subscriptionPlans.find(
+      (plan) => plan.planType === subscriptionPlan
+    );
+    if (!selectedPlan) {
       return res.status(400).json({ error: "Invalid subscription plan" });
     }
     subscriptionType = subscriptionPlan;
-    // For yearly subscriptions, if the price is per month, multiply by 12 (adjust if your model differs)
     amount =
-      (subscriptionPlan === "yearly" ? plan.price * 12 : plan.price) * 100;
-  } else {
-    return res.status(400).json({ error: "Invalid plan type" });
+      (subscriptionPlan === "yearly"
+        ? selectedPlan.price * 12
+        : selectedPlan.price) * 100;
   }
 
   // Create Razorpay order using the validated amount
