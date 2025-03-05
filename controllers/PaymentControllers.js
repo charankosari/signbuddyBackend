@@ -108,7 +108,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
     if (paymentRecord.planType === "credits") {
       user.credits += paymentRecord.credits;
     } else if (paymentRecord.planType === "subscription") {
-      user.subscriptionType = paymentRecord.subscriptionType;
+      user.subscription.type = paymentRecord.subscriptionType;
     }
     await user.save();
     return res.json({
