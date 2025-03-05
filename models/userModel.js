@@ -68,7 +68,7 @@ const userSchema = new mongoose.Schema({
   subscription: {
     type: {
       type: String,
-      enum: ["free", "annually", "monthly"],
+      enum: ["free", "yearly", "monthly"],
       default: "free",
     },
     timeStamp: { type: Date, default: Date.now }, // use Date.now without parentheses
