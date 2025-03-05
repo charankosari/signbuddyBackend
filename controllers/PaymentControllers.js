@@ -85,7 +85,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
   }
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId } =
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
     req.body;
 
   // Generate expected signature

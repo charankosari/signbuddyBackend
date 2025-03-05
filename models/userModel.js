@@ -34,6 +34,19 @@ const IncomingAgreementSchema = new mongoose.Schema({
     default: "pending",
   },
 });
+const BillingHistorySchema = new mongoose.Schema({
+  paymentId: { type: String, required: true },
+  invoiceUrl: { type: String, required: true },
+  dateOfPurchase: { type: Date, default: Date.now },
+  amount: { type: Number, required: true }, // in rupees
+  planName: {
+    type: String,
+    enum: ["credits", "monthly", "yearly"],
+    required: true,
+  },
+  creditsPurchased: { type: Number, default: 0 },
+  creditsPrice: { type: Number, default: 0 },
+});
 
 const userSchema = new mongoose.Schema({
   userName: {
@@ -212,6 +225,10 @@ const userSchema = new mongoose.Schema({
   },
   incomingAgreements: {
     type: [IncomingAgreementSchema],
+    default: [],
+  },
+  billingHistory: {
+    type: [BillingHistorySchema],
     default: [],
   },
   pass: { type: Boolean, default: false },
