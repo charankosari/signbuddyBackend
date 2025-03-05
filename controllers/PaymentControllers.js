@@ -60,6 +60,8 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
     amount: amount,
     currency: "INR",
     receipt: `receipt_order_${Date.now()}`,
+    name: "SignBuddy",
+    description: "payment for subscription or credits",
   });
 
   // Save payment details in the database
@@ -68,6 +70,7 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
     paymentId: order.id,
     planType,
     subscriptionType,
+
     credits,
     amount: amount / 100, // Store amount in rupees
     status: "initiated",
