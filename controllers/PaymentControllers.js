@@ -107,8 +107,15 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
     await paymentRecord.save();
     if (paymentRecord.planType === "credits") {
       user.credits += paymentRecord.credits;
+      user.creditsHistory.push({
+        thingUsed: "purchase",
+        creditsUsed: paymentRecord.credits,
+        // timestamp will default to Date.now
+      });
     } else if (paymentRecord.planType === "subscription") {
       user.subscription.type = paymentRecord.subscriptionType;
+      user.subscription.timeStamp = new Date();
+      user.setSubscriptionEndDate();
     }
     await user.save();
     return res.json({

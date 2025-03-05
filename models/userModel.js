@@ -9,7 +9,7 @@ const { timeStamp } = require("console");
 const CreditHistorySchema = new mongoose.Schema({
   thingUsed: {
     type: String,
-    enum: ["ai", "documentSent", "reminder"],
+    enum: ["ai", "documentSent", "reminder", "purchase", "refill"],
     required: true,
   },
   creditsUsed: {
@@ -261,7 +261,28 @@ userSchema.virtual("isInCooldown").get(function () {
 userSchema.methods.setCooldownPeriod = function () {
   this.cooldownPeriod = new Date(Date.now() + 6 * 60 * 60 * 1000); // 6 hours from now
 };
+userSchema.methods.setSubscriptionEndDate = function () {
+  const msInDay = 24 * 60 * 60 * 1000; // milliseconds in a day
 
+  // Ensure subscription.timestamp is set (if not, use current date)
+  if (!this.subscription.timeStamp) {
+    this.subscription.timeStamp = new Date();
+  }
+
+  if (this.subscription.type === "monthly") {
+    this.subscription.endDate = new Date(
+      this.subscription.timeStamp.getTime() + 30 * msInDay
+    );
+  } else if (this.subscription.type === "yearly") {
+    // For yearly, add 30 days * 12 = 360 days
+    this.subscription.endDate = new Date(
+      this.subscription.timeStamp.getTime() + 360 * msInDay
+    );
+  } else {
+    // For free or other types, you might want to clear the endDate
+    this.subscription.endDate = null;
+  }
+};
 // 🔹 Check if cooldown period has expired
 userSchema.methods.isCooldownExpired = function () {
   if (!this.cooldownPeriod) return true; // No cooldown set
