@@ -64,7 +64,7 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
 
   // Save payment details in the database
   const paymentRecord = await Payment.create({
-    user: userId,
+    user: user._id,
     paymentId: order.id,
     planType,
     subscriptionType,
