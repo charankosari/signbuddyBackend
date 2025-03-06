@@ -2089,7 +2089,10 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
 
   try {
     // Check and deduct credit if the user is on a free subscription
+    const currentDate = new Date();
+
     if (user.subscription.type === "free") {
+      // Free plan: deduct 1 credit
       if (user.credits < 1) {
         return res.status(403).json({
           message: "You do not have enough credits to send a reminder.",
@@ -2098,9 +2101,35 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
       user.credits -= 1;
       user.creditsHistory.push({
         thingUsed: "reminder",
-        creditsUsed: 1,
-        timestamp: new Date(),
+        creditsUsed: "1",
+        timestamp: currentDate,
       });
+    } else {
+      // Subscription plan
+      if (
+        user.subscription.endDate &&
+        user.subscription.endDate > currentDate
+      ) {
+        // Active subscription: record as "Organisation plan" (no credits deduction)
+        user.creditsHistory.push({
+          thingUsed: "reminder",
+          creditsUsed: "Organisation plan",
+          timestamp: currentDate,
+        });
+      } else {
+        // Subscription expired or endDate not set: treat as free
+        if (user.credits < 1) {
+          return res.status(403).json({
+            message: "You do not have enough credits to send a reminder.",
+          });
+        }
+        user.credits -= 1;
+        user.creditsHistory.push({
+          thingUsed: "reminder",
+          creditsUsed: "1",
+          timestamp: currentDate,
+        });
+      }
     }
 
     const { emails, names, previewImageUrl, redirectUrl } = req.body;
@@ -2398,13 +2427,49 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: "Unauthorized user" });
     }
+    const currentDate = new Date();
+
     if (user.subscription.type === "free") {
+      // Free plan: deduct 10 credits if available
       if (user.credits >= 10) {
         user.credits -= 10;
-      } else {
-        return res.status(403).json({
-          error: "You do not have enough credits to send.",
+        user.creditsHistory.push({
+          thingUsed: "documentSent",
+          creditsUsed: "10",
+          timestamp: currentDate,
         });
+      } else {
+        return res
+          .status(403)
+          .json({ error: "You do not have enough credits to send." });
+      }
+    } else {
+      // Subscription plan (yearly or monthly)
+      // Check if subscription is active (i.e. endDate is in the future)
+      if (
+        user.subscription.endDate &&
+        user.subscription.endDate > currentDate
+      ) {
+        // Active subscription: record that the document was sent under the Organisation plan.
+        user.creditsHistory.push({
+          thingUsed: "documentSent",
+          creditsUsed: "Organisation plan",
+          timestamp: currentDate,
+        });
+      } else {
+        // Subscription expired: treat as free, so deduct 10 credits if available.
+        if (user.credits >= 10) {
+          user.credits -= 10;
+          user.creditsHistory.push({
+            thingUsed: "documentSent",
+            creditsUsed: "10",
+            timestamp: currentDate,
+          });
+        } else {
+          return res
+            .status(403)
+            .json({ error: "You do not have enough credits to send." });
+        }
       }
     }
 
@@ -2506,7 +2571,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     // Deduct credits and update credits history.
     user.creditsHistory.push({
       thingUsed: "documentSent",
-      creditsUsed: 10,
+      creditsUsed: "10",
       timestamp: date,
     });
 

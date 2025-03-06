@@ -4,7 +4,6 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { type } = require("os");
-const { timeStamp } = require("console");
 
 const CreditHistorySchema = new mongoose.Schema({
   thingUsed: {
@@ -13,7 +12,7 @@ const CreditHistorySchema = new mongoose.Schema({
     required: true,
   },
   creditsUsed: {
-    type: Number,
+    type: String,
     required: true,
   },
   timestamp: {
