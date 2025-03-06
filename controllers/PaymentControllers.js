@@ -335,7 +335,9 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
 });
 
 exports.VerifyPayment = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id).select("+creditsHistory");
+  const user = await User.findById(req.user.id).select(
+    "+creditsHistory billingHistory"
+  );
 
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
@@ -446,7 +448,19 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
         pdfBuffer,
         pdfKey
       );
-
+      user.billingHistory.push({
+        paymentId: paymentRecord.paymentId,
+        invoiceUrl: pdfUploadUrl.url,
+        dateOfPurchase: new Date(),
+        amount: paymentRecord.amount,
+        planName:
+          paymentRecord.planType === "credits"
+            ? "credits"
+            : paymentRecord.subscriptionType,
+        creditsPurchased: paymentRecord.credits,
+        creditsPrice: paymentRecord.amount,
+      });
+      await user.save();
       return res.json({
         success: true,
         message: "Payment verified, invoice generated and sent successfully.",
