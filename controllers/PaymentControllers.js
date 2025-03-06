@@ -338,7 +338,6 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id).select(
     "+creditsHistory billingHistory credits"
   );
-  const email = user.email;
 
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
@@ -455,8 +454,8 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       planTypeLabel,
       paymentRecord.amount,
       formattedDate,
-      user.email,
-      user.userName,
+      u.email,
+      u.userName,
       planDescription
     );
 
@@ -478,8 +477,8 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
     // Send invoice via email
     await sendEmailWithAttachments(
       u.email,
-      "Your Invoice",
-      "Please find attached your invoice.",
+      "Invoice",
+      "Thank you for trusting signbuddy. Here’s your invoice.",
       pdfBuffer,
       pdfKey
     );
