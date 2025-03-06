@@ -21,7 +21,6 @@ const CreditHistorySchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true,
   },
 });
 const IncomingAgreementSchema = new mongoose.Schema({
