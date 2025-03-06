@@ -242,6 +242,17 @@ const invoiceHtml = (
 
   `;
 };
+function generatePdfBuffer(htmlContent) {
+  return new Promise((resolve, reject) => {
+    const options = { format: "A4" };
+    pdf.create(htmlContent, options).toBuffer((err, buffer) => {
+      if (err) {
+        return reject(err);
+      }
+      resolve(buffer);
+    });
+  });
+}
 exports.PlaceOrder = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id);
   if (!user) {
