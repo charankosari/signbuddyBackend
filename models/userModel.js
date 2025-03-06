@@ -229,6 +229,7 @@ const userSchema = new mongoose.Schema({
   billingHistory: {
     type: [BillingHistorySchema],
     default: [],
+    select: false,
   },
   pass: { type: Boolean, default: false },
   hashedOtp: { type: String, default: null, required: false },
