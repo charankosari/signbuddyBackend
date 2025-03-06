@@ -310,7 +310,8 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
 });
 
 exports.VerifyPayment = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id);
+  const user = await User.findById(req.user.id).select("+creditsHistory");
+
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
   }
