@@ -363,10 +363,11 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
     paymentRecord.status = "success";
     await paymentRecord.save();
     if (paymentRecord.planType === "credits") {
-      user.credits += Number(paymentRecord.credits);
+      const parsedCredits = parseInt(paymentRecord.credits, 10);
+      user.credits += parsedCredits;
       user.creditsHistory.push({
         thingUsed: "purchase",
-        creditsUsed: Number(paymentRecord.credits),
+        creditsUsed: parsedCredits.toString(),
       });
     } else if (paymentRecord.planType === "subscription") {
       user.subscription.type = paymentRecord.subscriptionType;

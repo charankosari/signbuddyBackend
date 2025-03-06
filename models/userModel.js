@@ -40,7 +40,6 @@ const BillingHistorySchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   planName: {
     type: String,
-    // enum: ["credits", "monthly", "yearly"],
     required: true,
   },
   creditsPurchased: { type: String, default: 0 },
