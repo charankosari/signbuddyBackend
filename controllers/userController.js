@@ -15,12 +15,7 @@ const fs = require("fs");
 const path = require("path");
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 const multer = require("multer");
-const {
-  putObject,
-  deleteObject,
-
-  UploadDocx,
-} = require("../utils/s3objects");
+const { putObject, deleteObject, UploadDocx } = require("../utils/s3objects");
 const { processFile } = require("../utils/Ilovepdf");
 const storage = multer.memoryStorage();
 const { v4: uuidv4 } = require("uuid");
@@ -33,6 +28,7 @@ const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
 const SendUsersWithNoAccount = require("../models/SendUsersWithNoAccount");
 const { OAuth2Client } = require("google-auth-library");
+const Counter = require("../models/CountModel");
 config({ path: "config/config.env" });
 // connection
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -1278,7 +1274,7 @@ exports.register = asyncHandler(async (req, res, next) => {
 
   // Create the user
   const user = await User.create({ email, password });
-
+  const updatedCounter = await Counter.incrementUserCount();
   const deletedAccount = await DeletedAccounts.findOne({ email });
   if (deletedAccount) {
     user.credits = deletedAccount.credits;
@@ -1362,7 +1358,7 @@ exports.googleAuth = asyncHandler(async (req, res, next) => {
 
   // New user flow
   user = new User({ email, userName: name });
-
+  const updatedCounter = await Counter.incrementUserCount();
   // Check if the email exists in PreUser => grant 100 credits
   const deletedAccount = await DeletedAccounts.findOne({ email });
   if (deletedAccount) {
@@ -2552,7 +2548,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       user.drafts = user.drafts.filter((draft) => draft.fileKey !== fileKey);
     }
     await user.save();
-
+    const updatedCounter = await Counter.incrementDocumentsSentCount();
     res.status(200).json({
       message: "Agreement sent successfully",
       previewImageUrl,
@@ -2854,29 +2850,12 @@ exports.getIp = (req, res, next) => {
     next(error);
   }
 };
-exports.createOptions = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.body.id);
-  if (!user) {
-    next(new errorHandler("user dosent exit", 401));
-  }
 
-  const options = {
-    key: null,
-    amount: null,
-    currency: null,
-    name: "Sign Buddy",
-    description: null,
-    order_id: orderData.order.id,
-    handler: async function (response) {
-      // Payment verification logic here
-    },
-    prefill: {
-      name: "Customer Name",
-      email: "customer@example.com",
-      contact: "9876543210",
-    },
-    theme: {
-      color: "#F37254",
-    },
-  };
-});
+exports.getCounter = async (req, res, next) => {
+  try {
+    const count = await Counter.findOne({});
+    res.status(200).json({ success: true, count });
+  } catch (err) {
+    next(err);
+  }
+};

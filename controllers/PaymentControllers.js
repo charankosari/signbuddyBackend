@@ -433,13 +433,11 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       });
     }
   } else {
-    // Payment verification failed
     paymentRecord.status = "failed";
     await paymentRecord.save();
 
-    // Optionally initiate a refund
     const refund = await razorpayInstance.payments.refund(razorpay_payment_id, {
-      amount: paymentRecord.amount * 100, // refund amount in paise
+      amount: paymentRecord.amount * 100,
     });
     paymentRecord.status = "refunded";
     await paymentRecord.save();

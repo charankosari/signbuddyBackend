@@ -30,6 +30,7 @@ const {
   // createOrUpdatePlans,
   getPlans,
   getIp,
+  getCounter,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -71,4 +72,5 @@ router
 router.route("/getplans").get(getPlans);
 // router.route("/updateplans").post(createOrUpdatePlans);
 router.route("/getip").get(getIp);
+router.route("/getcount").get(getCounter);
 module.exports = router;
