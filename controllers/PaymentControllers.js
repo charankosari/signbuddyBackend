@@ -6,6 +6,8 @@ const InvoiceModel = require("../models/InvoiceModel");
 const crypto = require("crypto");
 const { config } = require("dotenv");
 const User = require("../models/userModel");
+const pdf = require("html-pdf");
+
 const Plan = require("../models/PlansSchema");
 const { putObject, sendEmailWithAttachments } = require("../utils/s3objects");
 config({ path: "config/config.env" });
