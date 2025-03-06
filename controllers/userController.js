@@ -2854,12 +2854,13 @@ exports.getIp = (req, res, next) => {
 exports.getCounter = async (req, res, next) => {
   try {
     const count = await Counter.findOne({});
-    res
-      .status(200)
-      .json({
-        success: true,
-        count: { users: count.userCount, documents: count.documentsSentCount },
-      });
+    res.status(200).json({
+      success: true,
+      count: {
+        users: count ? count.userCount : 0,
+        documents: count ? count.documentsSentCount : 0,
+      },
+    });
   } catch (err) {
     next(err);
   }
