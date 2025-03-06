@@ -2119,7 +2119,7 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
         // Active subscription: record as "Organisation plan" (no credits deduction)
         user.creditsHistory.push({
           thingUsed: "reminder",
-          creditsUsed: "Organisation plan",
+          creditsUsed: "1",
           timestamp: currentDate,
         });
       } else {
@@ -2443,7 +2443,6 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     const currentDate = new Date();
 
     if (user.subscription.type === "free") {
-      // Free plan: deduct 10 credits if available
       if (user.credits >= 10) {
         user.credits -= 10;
         user.creditsHistory.push({
@@ -2463,7 +2462,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       ) {
         user.creditsHistory.push({
           thingUsed: "documentSent",
-          creditsUsed: "Organisation plan",
+          creditsUsed: "10",
           timestamp: currentDate,
         });
       } else {
