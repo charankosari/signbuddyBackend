@@ -475,15 +475,15 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       user: user._id,
     });
     await newInvoice.save();
-
-    // Send invoice via email
-    await sendEmailWithAttachments(
-      user.email,
-      "Your Invoice",
-      "Please find attached your invoice.",
-      pdfBuffer,
-      pdfKey
-    );
+    console.log(user, user.email);
+    // // Send invoice via email
+    // await sendEmailWithAttachments(
+    //   user.email,
+    //   "Your Invoice",
+    //   "Please find attached your invoice.",
+    //   pdfBuffer,
+    //   pdfKey
+    // );
     console.log("Invoice emailed to:", user.email);
 
     // Update billing history
