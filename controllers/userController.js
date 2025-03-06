@@ -2492,6 +2492,10 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       user.documentsSent[docIndex] = {
         ...user.documentsSent[docIndex],
         signedDocument: null,
+        documentKey: fileKey,
+        documentName: user.documentsSent[docIndex].documentName,
+        ImageUrls: user.documentsSent[docIndex].ImageUrls,
+
         sentAt: date,
         recipients: recipients,
         placeholders: placeholders,
