@@ -395,8 +395,8 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
         planTypeLabel,
         paymentRecord.amount,
         formattedDate,
-        email,
-        username,
+        user.email,
+        user.userName,
         planDescription
       );
 
