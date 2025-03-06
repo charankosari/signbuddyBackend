@@ -1715,7 +1715,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
 
       // Load the check icon image from assets.
       // IMPORTANT: Ensure this file is a PNG (or convert your SVG to PNG externally).
-      const checkIconPath = path.join(__dirname, "../assets/check.svg");
+      const checkIconPath = path.join(__dirname, "../assets/check.png");
       let checkIconBytes;
       try {
         checkIconBytes = fs.readFileSync(checkIconPath);
