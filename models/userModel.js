@@ -319,4 +319,17 @@ userSchema.methods.CheckExpiryOfOtp = function () {
   return Date.now() > this.hashedOtpExpire;
 };
 
+userSchema.methods.updateSubscriptionIfExpired = function () {
+  const now = new Date();
+  // Check if endDate exists and is in the past
+  if (this.subscription.endDate && this.subscription.endDate <= now) {
+    // Save the old endDate as the new start date
+    this.subscription.timeStamp = this.subscription.endDate;
+    // Convert the subscription to free
+    this.subscription.type = "free";
+    // Clear the subscription endDate
+    this.subscription.endDate = null;
+  }
+};
+
 module.exports = mongoose.model("User", userSchema);

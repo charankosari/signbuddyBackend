@@ -1410,6 +1410,8 @@ exports.login = asyncHandler(async (req, res, next) => {
 
   // Ensure user exists and fetch password
   const user = await User.findOne({ email }).select("+password");
+  user.updateSubscriptionIfExpired();
+  user.save();
   if (!user) {
     return res.status(400).json({ message: "User not found" });
   }
@@ -1458,6 +1460,8 @@ exports.userDetails = asyncHandler(async (req, res, next) => {
   if (!user) {
     return next(new errorHandler("Login to access this resource", 400));
   }
+  user.updateSubscriptionIfExpired();
+  user.save();
   const templatesCount = user.templates.length;
 
   // Calculate total documents count (documentsSent + drafts)
@@ -2084,9 +2088,11 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
 });
 
 exports.sendReminder = asyncHandler(async (req, res, next) => {
+  const u = await User.findById(req.user.id);
+  u.updateSubscriptionIfExpired();
+  u.save();
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
-
   try {
     // Check and deduct credit if the user is on a free subscription
     const currentDate = new Date();
@@ -2249,10 +2255,14 @@ exports.deleteDocument = asyncHandler(async (req, res, next) => {
 });
 
 exports.getCredits = asyncHandler(async (req, res, next) => {
+  const u = await User.findById(req.user.id)
+    .select("credits subscription")
+    .select("+creditsHistory");
+  u.updateSubscriptionIfExpired();
+  u.save();
   const user = await User.findById(req.user.id)
     .select("credits subscription")
     .select("+creditsHistory");
-
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
@@ -2422,6 +2432,9 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
 
 exports.sendAgreements = asyncHandler(async (req, res, next) => {
   try {
+    const u = await User.findById(req.user.id).select("+creditsHistory");
+    u.updateSubscriptionIfExpired();
+    u.save();
     const user = await User.findById(req.user.id).select("+creditsHistory");
 
     if (!user) {
@@ -2444,20 +2457,16 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
           .json({ error: "You do not have enough credits to send." });
       }
     } else {
-      // Subscription plan (yearly or monthly)
-      // Check if subscription is active (i.e. endDate is in the future)
       if (
         user.subscription.endDate &&
         user.subscription.endDate > currentDate
       ) {
-        // Active subscription: record that the document was sent under the Organisation plan.
         user.creditsHistory.push({
           thingUsed: "documentSent",
           creditsUsed: "Organisation plan",
           timestamp: currentDate,
         });
       } else {
-        // Subscription expired: treat as free, so deduct 10 credits if available.
         if (user.credits >= 10) {
           user.credits -= 10;
           user.creditsHistory.push({
@@ -2473,7 +2482,6 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       }
     }
 
-    // Ensure required fields are provided
     if (!req.body.emails || !req.body.names) {
       return res.status(400).json({ error: "Emails and names are required" });
     }
