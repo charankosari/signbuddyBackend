@@ -13,14 +13,17 @@ const counterSchema = new mongoose.Schema({
   },
   date: {
     type: Date,
-    deafult: Date.now(),
+    default: new Date("2025-03-06T00:00:00Z"),
   },
 });
 
 counterSchema.statics.incrementUserCount = async function () {
   let counter = await this.findOne({});
   if (!counter) {
-    counter = await this.create({ userCount: 1, documentsSentCount: 0 });
+    counter = await this.create({
+      userCount: 1,
+      documentsSentCount: 0,
+    });
   } else {
     counter.userCount++;
     counter = await counter.save();
@@ -31,7 +34,10 @@ counterSchema.statics.incrementUserCount = async function () {
 counterSchema.statics.incrementDocumentsSentCount = async function () {
   let counter = await this.findOne({});
   if (!counter) {
-    counter = await this.create({ userCount: 0, documentsSentCount: 1 });
+    counter = await this.create({
+      userCount: 0,
+      documentsSentCount: 1,
+    });
   } else {
     counter.documentsSentCount++;
     counter = await counter.save();
