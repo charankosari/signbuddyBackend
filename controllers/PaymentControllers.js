@@ -246,11 +246,16 @@ const invoiceHtml = (
 };
 function generatePdfBuffer(htmlContent) {
   return new Promise((resolve, reject) => {
-    const options = { format: "A4" };
+    const options = {
+      format: "A4",
+      childProcessOptions: {
+        env: {
+          OPENSSL_CONF: "/dev/null",
+        },
+      },
+    };
     pdf.create(htmlContent, options).toBuffer((err, buffer) => {
-      if (err) {
-        return reject(err);
-      }
+      if (err) return reject(err);
       resolve(buffer);
     });
   });
