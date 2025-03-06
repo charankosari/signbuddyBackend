@@ -339,7 +339,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   console.log("VerifyPayment called by user:", req.user.id);
 
   const user = await User.findById(req.user.id).select(
-    "+creditsHistory billingHistory"
+    "+creditsHistory billingHistory credits"
   );
 
   // 2. Log user doc (especially credits)
