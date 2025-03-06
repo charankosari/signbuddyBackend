@@ -2926,11 +2926,19 @@ exports.getIp = (req, res, next) => {
 exports.getCounter = async (req, res, next) => {
   try {
     const count = await Counter.findOne({});
+    let diffDays = 0;
+
+    if (count && count.date) {
+      const now = new Date();
+      // Calculate the difference: stored date minus current date.
+      diffDays = Math.ceil((count.date - now) / (1000 * 60 * 60 * 24));
+    }
     res.status(200).json({
       success: true,
       count: {
         users: count ? count.userCount : 0,
         documents: count ? count.documentsSentCount : 0,
+        days: `Documents Created In ${diffDays} Days`,
       },
     });
   } catch (err) {
