@@ -25,6 +25,20 @@ const IncomingAgreementSchema = new mongoose.Schema({
   senderEmail: { type: String, required: true },
   imageUrls: { type: [String], default: [] },
   placeholders: { type: Array, default: [] },
+
+  allRecipients: [
+    {
+      email: { type: String, required: true },
+      username: { type: String, required: true },
+      status: {
+        type: String,
+        enum: ["pending", "signed", "viewed", "rejected"],
+        default: "pending",
+      },
+      avatar: { type: String },
+      statusTime: { type: Date, default: Date.now() },
+    },
+  ],
   title: { type: String },
   receivedAt: { type: Date, default: Date.now },
   status: {

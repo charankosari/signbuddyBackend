@@ -2060,7 +2060,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     });
 
   const draftsList = user.drafts
-    .filter((draft) => draft.fileKey) // Ensure fileKey is not empty
+    .filter((draft) => draft.fileKey)
     .map((draft) => ({
       name: draft.fileKey,
       url: draft.fileUrl,
@@ -2070,16 +2070,47 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     }));
 
   const incomingAgreements = user.incomingAgreements
-    .filter((agreement) => agreement.agreementKey) // Ensure agreementKey is not empty
-    .map((agreement) => ({
-      agreementKey: agreement.agreementKey,
-      senderEmail: agreement.senderEmail,
-      imageUrls: agreement.imageUrls,
-      title: agreement.title,
-      placeholders: agreement.placeholders,
-      receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
-      status: agreement.status,
-    }));
+    .filter((agreement) => agreement.agreementKey)
+    .map((agreement) => {
+      // Use allRecipients from the agreement (if available)
+      const recipients = agreement.allRecipients || [];
+      const recipientDetails = recipients.map((r) => {
+        const randomAvatar =
+          !r.avatar && avatars.length > 0
+            ? avatars[Math.floor(Math.random() * avatars.length)].url
+            : r.avatar;
+        return {
+          name: r.userName || r.email,
+          email: r.email,
+          updates: r.statusTime
+            ? `${formatTimeAgo(new Date(r.statusTime))} `
+            : "",
+          recipientsAvatar: randomAvatar,
+        };
+      });
+
+      // Compute status based on recipient statuses.
+      const recipientStatuses = recipients.map((r) => r.status);
+      let computedStatus = "pending";
+      if (!recipientStatuses || recipientStatuses.length === 0) {
+        computedStatus = "draft";
+      } else if (recipientStatuses.every((s) => s === "signed")) {
+        computedStatus = "completed";
+      } else if (recipientStatuses.includes("viewed")) {
+        computedStatus = "viewed";
+      }
+
+      return {
+        agreementKey: agreement.agreementKey,
+        senderEmail: agreement.senderEmail,
+        imageUrls: agreement.imageUrls,
+        title: agreement.title,
+        placeholders: agreement.placeholders,
+        receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
+        status: computedStatus,
+        recipients: recipientDetails,
+      };
+    });
 
   res.status(200).json({
     recentDocuments: recentDocs,
@@ -2590,17 +2621,25 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       const agreementData = {
         agreementKey: fileKey,
         senderEmail: user.email,
-        imageUrls: d.ImageUrls || [], // or however you obtain the image URLs
+        imageUrls: d.ImageUrls || [],
         placeholders: placeholders,
         receivedAt: date,
         title: d && d.documentName ? d.documentName : "",
       };
-
+      const IncommingAgreementData = {
+        agreementKey: fileKey,
+        senderEmail: user.email,
+        imageUrls: d.ImageUrls || [],
+        placeholders: placeholders,
+        receivedAt: date,
+        title: d && d.documentName ? d.documentName : "",
+        allRecipients: recipients,
+      };
       const recipientUser = await User.findOne({
         email: recipientEmail,
       }).select("incomingAgreements");
       if (recipientUser) {
-        recipientUser.incomingAgreements.push(agreementData);
+        recipientUser.incomingAgreements.push(IncommingAgreementData);
         await recipientUser.save();
       } else {
         // If the recipient does not have an account, update or create a record in SendUsersWithNoAccount.
@@ -2610,7 +2649,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         if (!noAccountRecord) {
           noAccountRecord = new SendUsersWithNoAccount({
             email: recipientEmail,
-            incomingAgreements: [agreementData],
+            incomingAgreements: [IncommingAgreementData],
           });
         } else {
           noAccountRecord.incomingAgreements.push(agreementData);
