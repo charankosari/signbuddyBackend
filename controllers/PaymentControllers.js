@@ -248,7 +248,8 @@ const invoiceHtml = (
 function generatePdfBuffer(htmlContent) {
   return new Promise((resolve, reject) => {
     const options = {
-      format: "A4",
+      width: "190mm",
+      height: "600mm",
       childProcessOptions: {
         env: {
           OPENSSL_CONF: "/dev/null",
