@@ -165,7 +165,7 @@ const invoiceHtml = (
               ${planType}
             </td>
             <td style="padding: 12px; border-bottom: 1px solid #dee2e6">
-              Everything Unlimited, with infinite Credits
+             ${description}
             </td>
             <td
               style="
@@ -339,7 +339,6 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       user.creditsHistory.push({
         thingUsed: "purchase",
         creditsUsed: paymentRecord.credits,
-        // timestamp will default to Date.now
       });
     } else if (paymentRecord.planType === "subscription") {
       user.subscription.type = paymentRecord.subscriptionType;
@@ -360,22 +359,44 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       const invoiceCount = await InvoiceModel.countDocuments();
       const customerNo = String(invoiceCount + 1).padStart(5, "0");
       const Date = new Date().toLocaleDateString();
+      let planTypeLabel;
+      let planDescription;
+
+      if (
+        paymentRecord.planType === "yearly" ||
+        paymentRecord.planType === "monthly"
+      ) {
+        planTypeLabel = `For Organizations/Teams ${paymentRecord.planType}`;
+        planDescription = "Everything Unlimited, with infinite Credits";
+      } else if (paymentRecord.planType === "credits") {
+        if (paymentRecord.credits === 50) {
+          planTypeLabel = "Basic Credits Plan";
+          planDescription = "Basic - 50 credits";
+        } else if (paymentRecord.credits === 100) {
+          planTypeLabel = "Standard Credits Plan";
+          planDescription = "Standard - 100 credits";
+        } else if (paymentRecord.credits === 300) {
+          planTypeLabel = "Premium Credits Plan";
+          planDescription = "Premium - 300 credits";
+        } else {
+          planTypeLabel = "Credits Plan";
+          planDescription = `${paymentRecord.credits} credits`;
+        }
+      }
       const InvoiceHtml = invoiceHtml(
         customerNo,
         invoiceNoUnique,
-        paymentRecord.planType,
+        planTypeLabel,
         paymentRecord.amount,
         Date,
         email,
         username,
-        description
+        planDescription
       );
 
-      // Generate PDF buffer from the invoice HTML.
       const pdfBuffer = await generatePdfBuffer(InvoiceHtml);
       const pdfKey = `invoices/invoice_${invoiceNoUnique}.pdf`;
 
-      // 3. Upload the PDF using the putObject helper.
       const pdfUploadUrl = await putObject(
         pdfBuffer,
         pdfKey,
