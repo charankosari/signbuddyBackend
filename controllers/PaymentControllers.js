@@ -19,7 +19,7 @@ const invoiceHtml = (
   invoiceNoUnique,
   planType,
   amount,
-  Date,
+  formattedDate,
   email,
   username,
   description
@@ -83,7 +83,7 @@ const invoiceHtml = (
           </p>
           <p style="margin: 5px 0; color: #666">Customer No:#${customerNo}</p>
           <p style="margin: 5px 0; color: #666">Invoice No: #${invoiceNoUnique}</p>
-          <p style="margin: 5px 0; color: #666">Date: ${Date}</p>
+          <p style="margin: 5px 0; color: #666">Date: ${formattedDate}</p>
         </div>
       </div>
 
@@ -306,7 +306,12 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
     status: "initiated",
   });
 
-  res.json({ order, paymentRecord });
+  res.json({
+    success: true,
+    message: "Order placed successfully",
+    order,
+    paymentRecord,
+  });
 });
 
 exports.VerifyPayment = asyncHandler(async (req, res, next) => {
@@ -359,7 +364,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       // Generate customerNo based on total count of invoices (e.g., "00001", "00002", …)
       const invoiceCount = await InvoiceModel.countDocuments();
       const customerNo = String(invoiceCount + 1).padStart(5, "0");
-      const Date = new Date().toLocaleDateString();
+      const formattedDate = new Date().toLocaleDateString();
       let planTypeLabel;
       let planDescription;
 
@@ -389,7 +394,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
         invoiceNoUnique,
         planTypeLabel,
         paymentRecord.amount,
-        Date,
+        formattedDate,
         email,
         username,
         planDescription
