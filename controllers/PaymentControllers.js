@@ -358,7 +358,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   if (!paymentRecord) {
     return res.status(400).json({ error: "Payment record not found" });
   }
-
+  console.log(paymentRecord);
   if (expectedSignature === razorpay_signature) {
     paymentRecord.status = "success";
     await paymentRecord.save();
