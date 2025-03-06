@@ -34,7 +34,6 @@ exports.sendEmail = async (recipientEmail, subject, body) => {
   try {
     const command = new SendEmailCommand(params);
     const response = await sesClient.send(command);
-    console.log("Email sent successfully:", response);
     return response;
   } catch (error) {
     console.error("Error sending email:", error);
@@ -54,7 +53,6 @@ exports.sendEmailWithAttachments = async (
     const boundary = `----=_Part_${Date.now()}`;
     const fromAddress = process.env.AWS_SES_EMAIL;
     // Construct the raw MIME email message.
-    console.log("Sending email to:", recipientEmail);
 
     const rawMessage = [
       `From: "SignBuddy" <${fromAddress}>`, // Replace with your verified sender email.
@@ -78,7 +76,6 @@ exports.sendEmailWithAttachments = async (
       "",
       `--${boundary}--`,
     ].join("\n");
-    console.log("Raw MIME message:\n", rawMessage);
 
     const params = {
       RawMessage: {
@@ -91,7 +88,6 @@ exports.sendEmailWithAttachments = async (
     const command = new SendRawEmailCommand(params);
     // Use the SES client to send the email.
     const response = await sesClient.send(command);
-    console.log("Email sent successfully:", response);
     return response;
   } catch (err) {
     console.error("Error sending email with attachment:", err);

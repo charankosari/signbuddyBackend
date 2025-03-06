@@ -249,7 +249,7 @@ function generatePdfBuffer(htmlContent) {
   return new Promise((resolve, reject) => {
     const options = {
       format: "A4",
-      zoomFactor: 0.8,
+      zoomFactor: 0.4,
       childProcessOptions: {
         env: {
           OPENSSL_CONF: "/dev/null",
