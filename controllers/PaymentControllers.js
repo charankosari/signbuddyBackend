@@ -264,8 +264,6 @@ function generatePdfBuffer(htmlContent) {
 }
 exports.PlaceOrder = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id);
-  const email = user.email;
-  console.log(user);
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
   }
@@ -340,7 +338,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id).select(
     "+creditsHistory billingHistory credits"
   );
-  console.log(user);
+  const email = user.email;
 
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
@@ -361,9 +359,8 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   if (!paymentRecord) {
     return res.status(400).json({ error: "Payment record not found" });
   }
-  console.log(paymentRecord);
+
   if (expectedSignature !== razorpay_signature) {
-    console.log("Signatures do not match. Payment verification failed.");
     paymentRecord.status = "failed";
     await paymentRecord.save();
 
