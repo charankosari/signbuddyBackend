@@ -1855,7 +1855,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     }
 
     await senderUser.save();
-    document.res.status(200).json({
+    res.status(200).json({
       message: "Placeholders updated successfully",
     });
   } catch (error) {
