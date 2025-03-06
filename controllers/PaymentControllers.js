@@ -264,6 +264,7 @@ function generatePdfBuffer(htmlContent) {
 }
 exports.PlaceOrder = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id);
+  console.log(user);
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
   }
@@ -335,19 +336,10 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
 });
 
 exports.VerifyPayment = asyncHandler(async (req, res, next) => {
-  // 1. Log user ID
-  console.log("VerifyPayment called by user:", req.user.id);
-
   const user = await User.findById(req.user.id).select(
     "+creditsHistory billingHistory credits"
   );
-
-  // 2. Log user doc (especially credits)
-  console.log("Fetched user from DB:", {
-    userId: user?._id,
-    currentCredits: user?.credits,
-    typeOfCredits: typeof user?.credits,
-  });
+  console.log(user);
 
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
@@ -355,36 +347,25 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
 
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
     req.body;
-  console.log("Received Razorpay details:", {
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
-  });
 
-  // 3. Generate expected signature
   const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
   hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
   const expectedSignature = hmac.digest("hex");
-  console.log("Expected signature:", expectedSignature);
 
-  // 4. Find the payment record
   const paymentRecord = await Payment.findOne({
     paymentId: razorpay_order_id,
     user: user.id,
   });
-  console.log("Fetched paymentRecord:", paymentRecord);
 
   if (!paymentRecord) {
     return res.status(400).json({ error: "Payment record not found" });
   }
-
-  // 5. Compare signatures
+  console.log(paymentRecord);
   if (expectedSignature !== razorpay_signature) {
     console.log("Signatures do not match. Payment verification failed.");
     paymentRecord.status = "failed";
     await paymentRecord.save();
 
-    // Optionally initiate a refund
     const refund = await razorpayInstance.payments.refund(razorpay_payment_id, {
       amount: paymentRecord.amount * 100,
     });
@@ -400,47 +381,19 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
   // 6. Mark paymentRecord as success
   paymentRecord.status = "success";
   await paymentRecord.save();
-  console.log("Payment record updated to success.");
 
   // 7. If planType is credits, parse and add to user credits
   if (paymentRecord.planType === "credits") {
-    console.log(
-      "Plan type is credits. Raw paymentRecord.credits:",
-      paymentRecord.credits,
-      "type:",
-      typeof paymentRecord.credits
-    );
-
     // Safely parse credits
     const parsedCredits = parseInt(paymentRecord.credits, 10);
-    console.log(
-      "Parsed credits:",
-      parsedCredits,
-      "type:",
-      typeof parsedCredits
-    );
 
-    console.log(
-      "User credits before adding:",
-      user.credits,
-      "type:",
-      typeof user.credits
-    );
     user.credits += parsedCredits;
-    console.log(
-      "User credits after adding:",
-      user.credits,
-      "type:",
-      typeof user.credits
-    );
 
     user.creditsHistory.push({
       thingUsed: "purchase",
       creditsUsed: parsedCredits.toString(),
     });
-    console.log("Pushed to creditsHistory:", parsedCredits.toString());
   } else if (paymentRecord.planType === "subscription") {
-    console.log("Plan type is subscription:", paymentRecord.subscriptionType);
     user.subscription.type = paymentRecord.subscriptionType;
     user.subscription.timeStamp = new Date();
     user.setSubscriptionEndDate();
@@ -448,9 +401,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
 
   // 8. Save user
   try {
-    console.log("About to save user with credits:", user.credits);
     await user.save();
-    console.log("User saved successfully.");
   } catch (err) {
     console.error("Error on user.save():", err);
     return res.status(500).json({
@@ -469,12 +420,10 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       invoiceNoUnique =
         "INV" + crypto.randomBytes(4).toString("hex").toUpperCase();
     }
-    console.log("Using invoiceNoUnique:", invoiceNoUnique);
 
     // Generate customerNo
     const invoiceCount = await InvoiceModel.countDocuments();
     const customerNo = String(invoiceCount + 1).padStart(5, "0");
-    console.log("Using customerNo:", customerNo);
 
     const formattedDate = new Date().toLocaleDateString();
     let planTypeLabel;
@@ -502,13 +451,6 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       }
     }
 
-    console.log(
-      "Plan type label:",
-      planTypeLabel,
-      "| Plan description:",
-      planDescription
-    );
-
     const InvoiceHtml = invoiceHtml(
       customerNo,
       invoiceNoUnique,
@@ -524,7 +466,6 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
     const pdfKey = `invoices/invoice_${invoiceNoUnique}.pdf`;
 
     const pdfUploadUrl = await putObject(pdfBuffer, pdfKey, "application/pdf");
-    console.log("PDF uploaded to S3:", pdfUploadUrl.url);
 
     // Save invoice details
     const newInvoice = new InvoiceModel({
@@ -534,7 +475,6 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       user: user._id,
     });
     await newInvoice.save();
-    console.log("Invoice saved to DB:", newInvoice._id);
 
     // Send invoice via email
     await sendEmailWithAttachments(
@@ -559,10 +499,8 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       creditsPurchased: paymentRecord.credits.toString(),
       creditsPrice: paymentRecord.amount.toString(),
     });
-    console.log("Added to billingHistory.");
 
     await user.save();
-    console.log("User updated with new billing history.");
 
     return res.json({
       success: true,
