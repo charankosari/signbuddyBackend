@@ -15,7 +15,7 @@ const SES_CONFIG = {
 };
 const sesClient = new SESClient(SES_CONFIG);
 
-exports.sendEmail = asyncHandler(async (recipientEmail, subject, body) => {
+exports.sendEmail = async (recipientEmail, subject, body) => {
   const params = {
     Source: process.env.AWS_SES_EMAIL,
     Destination: {
@@ -39,7 +39,7 @@ exports.sendEmail = asyncHandler(async (recipientEmail, subject, body) => {
     console.error("Error sending email:", error);
     throw error;
   }
-});
+};
 exports.sendEmailWithAttachments = async (
   recipientEmail,
   subject,
