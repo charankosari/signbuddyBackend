@@ -52,10 +52,12 @@ exports.sendEmailWithAttachments = async (
   try {
     // Define a unique MIME boundary.
     const boundary = `----=_Part_${Date.now()}`;
-
+    const fromAddress = process.env.AWS_SES_EMAIL;
     // Construct the raw MIME email message.
+    console.log("Sending email to:", recipientEmail);
+
     const rawMessage = [
-      `From: "SignBuddy" <official@signbuddy.in>`, // Replace with your verified sender email.
+      `From: "SignBuddy" <${fromAddress}>`, // Replace with your verified sender email.
       `To: ${recipientEmail}`,
       `Subject: ${subject}`,
       "MIME-Version: 1.0",
@@ -76,12 +78,13 @@ exports.sendEmailWithAttachments = async (
       "",
       `--${boundary}--`,
     ].join("\n");
+    console.log("Raw MIME message:\n", rawMessage);
 
     const params = {
       RawMessage: {
         Data: rawMessage,
       },
-      Source: "official@signbuddy.in",
+      Source: fromAddress,
       Destinations: [recipientEmail],
     };
 
