@@ -335,148 +335,56 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
 });
 
 exports.VerifyPayment = asyncHandler(async (req, res, next) => {
+  // 1. Log user ID
+  console.log("VerifyPayment called by user:", req.user.id);
+
   const user = await User.findById(req.user.id).select(
     "+creditsHistory billingHistory"
   );
 
+  // 2. Log user doc (especially credits)
+  console.log("Fetched user from DB:", {
+    userId: user?._id,
+    currentCredits: user?.credits,
+    typeOfCredits: typeof user?.credits,
+  });
+
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
   }
+
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
     req.body;
+  console.log("Received Razorpay details:", {
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+  });
 
-  // Generate expected signature
+  // 3. Generate expected signature
   const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
   hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
   const expectedSignature = hmac.digest("hex");
+  console.log("Expected signature:", expectedSignature);
 
-  // Find the payment record
+  // 4. Find the payment record
   const paymentRecord = await Payment.findOne({
     paymentId: razorpay_order_id,
     user: user.id,
   });
+  console.log("Fetched paymentRecord:", paymentRecord);
+
   if (!paymentRecord) {
     return res.status(400).json({ error: "Payment record not found" });
   }
-  console.log(paymentRecord);
-  if (expectedSignature === razorpay_signature) {
-    paymentRecord.status = "success";
-    await paymentRecord.save();
-    if (paymentRecord.planType === "credits") {
-      const parsedCredits = parseInt(paymentRecord.credits, 10);
-      user.credits += parsedCredits;
-      user.creditsHistory.push({
-        thingUsed: "purchase",
-        creditsUsed: parsedCredits.toString(),
-      });
-    } else if (paymentRecord.planType === "subscription") {
-      user.subscription.type = paymentRecord.subscriptionType;
-      user.subscription.timeStamp = new Date();
-      user.setSubscriptionEndDate();
-    }
-    await user.save();
-    try {
-      // Generate a unique random invoice number.
-      let randomInvoiceNo =
-        "INV" + crypto.randomBytes(4).toString("hex").toUpperCase();
-      let invoiceNoUnique = randomInvoiceNo;
-      while (await InvoiceModel.findOne({ invoiceNo: invoiceNoUnique })) {
-        invoiceNoUnique =
-          "INV" + crypto.randomBytes(4).toString("hex").toUpperCase();
-      }
-      // Generate customerNo based on total count of invoices (e.g., "00001", "00002", …)
-      const invoiceCount = await InvoiceModel.countDocuments();
-      const customerNo = String(invoiceCount + 1).padStart(5, "0");
-      const formattedDate = new Date().toLocaleDateString();
-      let planTypeLabel;
-      let planDescription;
 
-      if (
-        paymentRecord.planType === "yearly" ||
-        paymentRecord.planType === "monthly"
-      ) {
-        planTypeLabel = `For Organizations/Teams ${paymentRecord.planType}`;
-        planDescription = "Everything Unlimited, with infinite Credits";
-      } else if (paymentRecord.planType === "credits") {
-        if (paymentRecord.credits === 50) {
-          planTypeLabel = "Basic Credits Plan";
-          planDescription = "Basic - 50 credits";
-        } else if (paymentRecord.credits === 100) {
-          planTypeLabel = "Standard Credits Plan";
-          planDescription = "Standard - 100 credits";
-        } else if (paymentRecord.credits === 300) {
-          planTypeLabel = "Premium Credits Plan";
-          planDescription = "Premium - 300 credits";
-        } else {
-          planTypeLabel = "Credits Plan";
-          planDescription = `${paymentRecord.credits} credits`;
-        }
-      }
-      const InvoiceHtml = invoiceHtml(
-        customerNo,
-        invoiceNoUnique,
-        planTypeLabel,
-        paymentRecord.amount,
-        formattedDate,
-        user.email,
-        user.userName,
-        planDescription
-      );
-
-      const pdfBuffer = await generatePdfBuffer(InvoiceHtml);
-      const pdfKey = `invoices/invoice_${invoiceNoUnique}.pdf`;
-
-      const pdfUploadUrl = await putObject(
-        pdfBuffer,
-        pdfKey,
-        "application/pdf"
-      );
-
-      // 4. Save invoice details in InvoiceModel.
-      const newInvoice = new InvoiceModel({
-        invoiceUrl: pdfUploadUrl.url,
-        invoiceNo: invoiceNoUnique,
-        customerNo: customerNo,
-        user: user._id,
-      });
-      await newInvoice.save();
-
-      // 5. Send the invoice as an email attachment using SES.
-      await sendEmailWithAttachments(
-        user.email,
-        "Your Invoice",
-        "Please find attached your invoice.",
-        pdfBuffer,
-        pdfKey
-      );
-      user.billingHistory.push({
-        paymentId: paymentRecord.paymentId,
-        invoiceUrl: pdfUploadUrl.url,
-        dateOfPurchase: new Date(),
-        amount: paymentRecord.amount,
-        planName:
-          paymentRecord.planType === "credits"
-            ? "credits"
-            : paymentRecord.subscriptionType,
-        creditsPurchased: paymentRecord.credits.toString(),
-        creditsPrice: paymentRecord.amount.toString(),
-      });
-      await user.save();
-      return res.json({
-        success: true,
-        message: "Payment verified, invoice generated and sent successfully.",
-        invoiceUrl: pdfUploadUrl,
-      });
-    } catch (invoiceError) {
-      console.error("Error generating invoice PDF:", invoiceError);
-      return res.status(500).json({
-        error: "Payment verified but failed to generate invoice PDF.",
-      });
-    }
-  } else {
+  // 5. Compare signatures
+  if (expectedSignature !== razorpay_signature) {
+    console.log("Signatures do not match. Payment verification failed.");
     paymentRecord.status = "failed";
     await paymentRecord.save();
 
+    // Optionally initiate a refund
     const refund = await razorpayInstance.payments.refund(razorpay_payment_id, {
       amount: paymentRecord.amount * 100,
     });
@@ -486,6 +394,185 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
     return res.status(400).json({
       error: "Payment verification failed. Refund initiated.",
       refund,
+    });
+  }
+
+  // 6. Mark paymentRecord as success
+  paymentRecord.status = "success";
+  await paymentRecord.save();
+  console.log("Payment record updated to success.");
+
+  // 7. If planType is credits, parse and add to user credits
+  if (paymentRecord.planType === "credits") {
+    console.log(
+      "Plan type is credits. Raw paymentRecord.credits:",
+      paymentRecord.credits,
+      "type:",
+      typeof paymentRecord.credits
+    );
+
+    // Safely parse credits
+    const parsedCredits = parseInt(paymentRecord.credits, 10);
+    console.log(
+      "Parsed credits:",
+      parsedCredits,
+      "type:",
+      typeof parsedCredits
+    );
+
+    console.log(
+      "User credits before adding:",
+      user.credits,
+      "type:",
+      typeof user.credits
+    );
+    user.credits += parsedCredits;
+    console.log(
+      "User credits after adding:",
+      user.credits,
+      "type:",
+      typeof user.credits
+    );
+
+    user.creditsHistory.push({
+      thingUsed: "purchase",
+      creditsUsed: parsedCredits.toString(),
+    });
+    console.log("Pushed to creditsHistory:", parsedCredits.toString());
+  } else if (paymentRecord.planType === "subscription") {
+    console.log("Plan type is subscription:", paymentRecord.subscriptionType);
+    user.subscription.type = paymentRecord.subscriptionType;
+    user.subscription.timeStamp = new Date();
+    user.setSubscriptionEndDate();
+  }
+
+  // 8. Save user
+  try {
+    console.log("About to save user with credits:", user.credits);
+    await user.save();
+    console.log("User saved successfully.");
+  } catch (err) {
+    console.error("Error on user.save():", err);
+    return res.status(500).json({
+      error: "Failed to update user after payment verification.",
+      details: err.message,
+    });
+  }
+
+  // 9. Generate and upload invoice, send email, etc.
+  try {
+    // Generate a unique random invoice number
+    let randomInvoiceNo =
+      "INV" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    let invoiceNoUnique = randomInvoiceNo;
+    while (await InvoiceModel.findOne({ invoiceNo: invoiceNoUnique })) {
+      invoiceNoUnique =
+        "INV" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    }
+    console.log("Using invoiceNoUnique:", invoiceNoUnique);
+
+    // Generate customerNo
+    const invoiceCount = await InvoiceModel.countDocuments();
+    const customerNo = String(invoiceCount + 1).padStart(5, "0");
+    console.log("Using customerNo:", customerNo);
+
+    const formattedDate = new Date().toLocaleDateString();
+    let planTypeLabel;
+    let planDescription;
+
+    if (
+      paymentRecord.planType === "yearly" ||
+      paymentRecord.planType === "monthly"
+    ) {
+      planTypeLabel = `For Organizations/Teams ${paymentRecord.planType}`;
+      planDescription = "Everything Unlimited, with infinite Credits";
+    } else if (paymentRecord.planType === "credits") {
+      if (paymentRecord.credits === 50) {
+        planTypeLabel = "Basic Credits Plan";
+        planDescription = "Basic - 50 credits";
+      } else if (paymentRecord.credits === 100) {
+        planTypeLabel = "Standard Credits Plan";
+        planDescription = "Standard - 100 credits";
+      } else if (paymentRecord.credits === 300) {
+        planTypeLabel = "Premium Credits Plan";
+        planDescription = "Premium - 300 credits";
+      } else {
+        planTypeLabel = "Credits Plan";
+        planDescription = `${paymentRecord.credits} credits`;
+      }
+    }
+
+    console.log(
+      "Plan type label:",
+      planTypeLabel,
+      "| Plan description:",
+      planDescription
+    );
+
+    const InvoiceHtml = invoiceHtml(
+      customerNo,
+      invoiceNoUnique,
+      planTypeLabel,
+      paymentRecord.amount,
+      formattedDate,
+      user.email,
+      user.userName,
+      planDescription
+    );
+
+    const pdfBuffer = await generatePdfBuffer(InvoiceHtml);
+    const pdfKey = `invoices/invoice_${invoiceNoUnique}.pdf`;
+
+    const pdfUploadUrl = await putObject(pdfBuffer, pdfKey, "application/pdf");
+    console.log("PDF uploaded to S3:", pdfUploadUrl.url);
+
+    // Save invoice details
+    const newInvoice = new InvoiceModel({
+      invoiceUrl: pdfUploadUrl.url,
+      invoiceNo: invoiceNoUnique,
+      customerNo: customerNo,
+      user: user._id,
+    });
+    await newInvoice.save();
+    console.log("Invoice saved to DB:", newInvoice._id);
+
+    // Send invoice via email
+    await sendEmailWithAttachments(
+      user.email,
+      "Your Invoice",
+      "Please find attached your invoice.",
+      pdfBuffer,
+      pdfKey
+    );
+    console.log("Invoice emailed to:", user.email);
+
+    // Update billing history
+    user.billingHistory.push({
+      paymentId: paymentRecord.paymentId,
+      invoiceUrl: pdfUploadUrl.url,
+      dateOfPurchase: new Date(),
+      amount: paymentRecord.amount,
+      planName:
+        paymentRecord.planType === "credits"
+          ? "credits"
+          : paymentRecord.subscriptionType,
+      creditsPurchased: paymentRecord.credits.toString(),
+      creditsPrice: paymentRecord.amount.toString(),
+    });
+    console.log("Added to billingHistory.");
+
+    await user.save();
+    console.log("User updated with new billing history.");
+
+    return res.json({
+      success: true,
+      message: "Payment verified, invoice generated and sent successfully.",
+      invoiceUrl: pdfUploadUrl,
+    });
+  } catch (invoiceError) {
+    console.error("Error generating invoice PDF:", invoiceError);
+    return res.status(500).json({
+      error: "Payment verified but failed to generate invoice PDF.",
     });
   }
 });
