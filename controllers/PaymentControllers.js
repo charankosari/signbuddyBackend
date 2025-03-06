@@ -264,6 +264,7 @@ function generatePdfBuffer(htmlContent) {
 }
 exports.PlaceOrder = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id);
+  const email = user.email;
   console.log(user);
   if (!user) {
     return res.status(400).json({ success: false, message: "User not found" });
@@ -475,10 +476,12 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       user: user._id,
     });
     await newInvoice.save();
-    console.log(user, user.email);
+    const u = await User.findById(req.user.id);
+    console.log(u);
+    console.log(u, u.email, email);
     // // Send invoice via email
     // await sendEmailWithAttachments(
-    //   user.email,
+    //   u.email,
     //   "Your Invoice",
     //   "Please find attached your invoice.",
     //   pdfBuffer,
