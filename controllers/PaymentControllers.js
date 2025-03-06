@@ -458,7 +458,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
             ? "credits"
             : paymentRecord.subscriptionType,
         creditsPurchased: paymentRecord.credits,
-        creditsPrice: paymentRecord.amount,
+        creditsPrice: paymentRecord.amount.toString(),
       });
       await user.save();
       return res.json({
