@@ -1676,6 +1676,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         if (!req.file) {
           continue;
         }
+        console.log(req.file);
         const tempDir = path.join(__dirname, "../temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
         const signatureId = uuidv4();
