@@ -1679,7 +1679,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         const tempDir = path.join(__dirname, "../temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
         const signatureId = uuidv4();
-        const imageFile = `${signatureId}.jpg`;
+        const imageFile = `${signatureId}.png`;
         const tempFilePath = path.join(tempDir, imageFile);
         fs.writeFileSync(tempFilePath, req.file.buffer);
         const imageBuffer = fs.readFileSync(tempFilePath);
