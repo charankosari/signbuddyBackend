@@ -447,7 +447,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
         planDescription = `${paymentRecord.credits} credits`;
       }
     }
-
+    const u = await User.findById(req.user.id);
     const InvoiceHtml = invoiceHtml(
       customerNo,
       invoiceNoUnique,
@@ -472,7 +472,6 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       user: user._id,
     });
     await newInvoice.save();
-    const u = await User.findById(req.user.id);
 
     // Send invoice via email
     await sendEmailWithAttachments(
