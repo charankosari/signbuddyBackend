@@ -9,7 +9,7 @@ const User = require("../models/userModel");
 const pdf = require("html-pdf");
 
 const Plan = require("../models/PlansSchema");
-const { putObject, sendEmailWithAttachments } = require("../utils/s3objects");
+const { putObject, sendEmailWithAttachments } = require("../utils/sendEmail");
 config({ path: "config/config.env" });
 const razorpayInstance = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
