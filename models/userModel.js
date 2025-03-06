@@ -37,10 +37,10 @@ const BillingHistorySchema = new mongoose.Schema({
   paymentId: { type: String, required: true },
   invoiceUrl: { type: String, required: true },
   dateOfPurchase: { type: Date, default: Date.now },
-  amount: { type: Number, required: true }, // in rupees
+  amount: { type: Number, required: true },
   planName: {
     type: String,
-    enum: ["credits", "monthly", "yearly"],
+    // enum: ["credits", "monthly", "yearly"],
     required: true,
   },
   creditsPurchased: { type: Number, default: 0 },
