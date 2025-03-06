@@ -3,6 +3,7 @@ const {
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
+  SendRawEmailCommand,
 } = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
 const asyncHandler = require("../middleware/asynchandler");
