@@ -11,6 +11,10 @@ const counterSchema = new mongoose.Schema({
     default: 0,
     required: true,
   },
+  date: {
+    type: Date,
+    deafult: Date.now(),
+  },
 });
 
 counterSchema.statics.incrementUserCount = async function () {
