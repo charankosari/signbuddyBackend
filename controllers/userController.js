@@ -2302,7 +2302,7 @@ exports.getCredits = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     credits: user.credits,
     creditsHistory: user.creditsHistory,
-    subsription: user.subscription,
+    subscription: user.subscription,
     billingHistory: user.billingHistory,
   });
 });
