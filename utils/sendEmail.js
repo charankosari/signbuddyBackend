@@ -86,7 +86,8 @@ exports.sendEmailWithAttachments = async (
     };
 
     const command = new SendRawEmailCommand(params);
-    const response = await exports.s3Client.send(command);
+    // Use the SES client to send the email.
+    const response = await sesClient.send(command);
     console.log("Email sent successfully:", response);
     return response;
   } catch (err) {
