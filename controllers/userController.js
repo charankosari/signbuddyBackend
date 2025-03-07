@@ -9,7 +9,14 @@ const DeletedAccounts = require("../models/DeletedAccounts");
 const Plans = require("../models/PlansSchema");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
-const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
+const {
+  PDFDocument,
+  rgb,
+  StandardFonts,
+  pushGraphicsState,
+  popGraphicsState,
+  setGraphicsState,
+} = require("pdf-lib");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -1668,20 +1675,18 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     if (recipient.recipientViewedIp === null) {
       recipient.recipientViewedIp = ipAddress;
     }
+
+    // Update placeholders with any new signature or text/date values
     for (const phReq of placeholdersFromReq) {
       const { email, type, value } = phReq;
       const docPlaceholder = document.placeholders.find(
         (p) => p.email === email && p.type === type
       );
-
-      if (!docPlaceholder) {
-        continue;
-      }
+      if (!docPlaceholder) continue;
 
       if (type === "signature" && email === presentUser.email) {
-        if (!req.file) {
-          continue;
-        }
+        // Handle signature upload
+        if (!req.file) continue;
         console.log(req.file);
         const tempDir = path.join(__dirname, "../temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
@@ -1700,21 +1705,31 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         }
         docPlaceholder.value = imageUpload.url;
         fs.unlinkSync(tempFilePath);
-      }
-      // If it's text or date, set docPlaceholder.value from phReq.value
-      else if ((type === "text" || type === "date") && value) {
+      } else if ((type === "text" || type === "date") && value) {
+        // Handle text/date placeholder
         docPlaceholder.value = value;
       }
     }
+
+    // Save the updated senderUser
     await senderUser.save();
 
+    // 5. If all recipients have signed, generate the final PDF with overlays
     const allSigned = document.recipients.every((r) => r.status === "signed");
     if (allSigned) {
       const pdfDoc = await PDFDocument.create();
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const margin = 20;
+
+      // Large font sizes for demonstration; adjust to suit your design
       const placeholderTextSize = 52;
       const footerFontSize = 32;
+
+      // Define margins
+      const bottomMargin = 40;
+      const leftMargin = 40;
+      const rightMargin = 40;
+
+      // Load check icon
       const checkIconPath = path.join(__dirname, "../assets/check.png");
       let checkIconBytes;
       try {
@@ -1727,9 +1742,15 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       if (checkIconBytes) {
         checkIconImage = await pdfDoc.embedPng(checkIconBytes);
       }
-      // Increased dimensions for the footer icon.
+      // Icon dimensions
       const footerIconWidth = 32;
       const footerIconHeight = 32;
+
+      // Footer text for the right side
+      const rightFooterText = "Secured via signbuddy";
+
+      // Left side footer text: DocumentId - documentKey
+      const leftFooterText = `DocumentId - ${document.uniqueId}`;
 
       // Process each page image using its index (pageIndex starts at 0).
       for (
@@ -1746,7 +1767,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         const pageHeight = embeddedPage.height;
         const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-        // Draw the original page image.
+        // Draw the original page image
         page.drawImage(embeddedPage, {
           x: 0,
           y: 0,
@@ -1754,13 +1775,13 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           height: pageHeight,
         });
 
-        // Overlay placeholders (only on the page matching pageNumber).
+        // Overlay placeholders (only on the page matching pageNumber)
         for (const ph of document.placeholders) {
-          // Use the provided pageNumber property (pages start at 1).
           if (ph.pageNumber && parseInt(ph.pageNumber) !== pageIndex + 1) {
             continue;
           }
           if (ph.value) {
+            // Convert top-based % to PDF coordinates
             const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
             const elementHeight =
               (parseFloat(ph.size.height) / 100) * pageHeight;
@@ -1773,7 +1794,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
 
             if (ph.type === "signature") {
               try {
-                console.log(ph.value);
                 const sigResponse = await axios.get(ph.value, {
                   responseType: "arraybuffer",
                 });
@@ -1802,45 +1822,68 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           }
         }
 
-        // Optionally, add footer only on a specific page if document.footerPage is provided.
-        // Otherwise, add the footer to every page.
+        // Add footer if no specific page is set OR if this page is the specified footer page
         if (!document.footerPage || document.footerPage == pageIndex + 1) {
-          const footerText = "Secured via signbuddy";
-          const textWidth = font.widthOfTextAtSize(footerText, footerFontSize);
-          const totalFooterWidth = footerIconWidth + 5 + textWidth;
-          const footerX = pageWidth - totalFooterWidth - margin;
-          const footerY = margin; // Bottom margin (PDF origin is bottom-left).
+          // Measure the right text width
+          const rightTextWidth = font.widthOfTextAtSize(
+            rightFooterText,
+            footerFontSize
+          );
+          // Total width = icon + gap + text
+          const totalRightFooterWidth = footerIconWidth + 5 + rightTextWidth;
 
-          // Draw the check icon if available.
+          // Coordinates for left footer text
+          const leftFooterTextX = leftMargin;
+          const leftFooterTextY = bottomMargin;
+
+          // Coordinates for right footer icon & text
+          const iconX = pageWidth - rightMargin - totalRightFooterWidth;
+          const iconY = bottomMargin;
+          page.pushOperators(setGraphicsState(PDFName.of("GS0")));
+          // 1) Draw the left footer text
+          page.drawText(leftFooterText, {
+            x: leftFooterTextX,
+            y: leftFooterTextY,
+            size: footerFontSize,
+            font: font,
+            color: rgb(0, 0, 0),
+          });
+          page.pushOperators(popGraphicsState());
+          // 2) Draw the check icon on the right
+          page.pushOperators(setGraphicsState(PDFName.of("GS0")));
           if (checkIconImage) {
             page.drawImage(checkIconImage, {
-              x: footerX,
-              y: footerY,
+              x: iconX,
+              y: iconY,
               width: footerIconWidth,
               height: footerIconHeight,
             });
           } else {
-            // Fallback: draw a Unicode check mark.
+            // Fallback: draw a check mark
             page.drawText("✓", {
-              x: footerX,
-              y: footerY,
+              x: iconX,
+              y: iconY,
               size: footerIconHeight,
               font: font,
               color: rgb(0, 0, 0),
             });
           }
-          // Draw the footer text next to the icon with a 5px gap.
-          page.drawText(footerText, {
-            x: footerX + footerIconWidth + 5,
-            y: footerY + (footerIconHeight - footerFontSize) / 2,
+          page.pushOperators(popGraphicsState());
+
+          // 3) Draw the "Secured via signbuddy" text next to the icon
+          page.pushOperators(setGraphicsState(PDFName.of("GS0")));
+          page.drawText(rightFooterText, {
+            x: iconX + footerIconWidth + 5,
+            y: iconY + (footerIconHeight - footerFontSize) / 2,
             size: footerFontSize,
             font: font,
             color: rgb(0, 0, 0),
           });
+          page.pushOperators(popGraphicsState());
         }
       }
 
-      // Save the PDF and upload.
+      // Save the PDF and upload
       const pdfBytes = await pdfDoc.save();
       const pdfKey = `signedDocuments/${documentKey}.pdf`;
       const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
@@ -1851,6 +1894,8 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       }
       console.log("Final signed PDF URL:", pdfUpload.url);
       document.signedDocument = pdfUpload.url;
+
+      // If there are CC recipients, email them a link to the final PDF
       if (document.CC && document.CC.length > 0) {
         try {
           const documentUrl = pdfUpload.url;
