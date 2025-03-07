@@ -24,7 +24,10 @@ const PreUser = require("../models/preUsers");
 const poppler = new Poppler();
 const { getAvatarsList } = require("../utils/s3objects");
 const { S3Client } = require("@aws-sdk/client-s3");
-const { ListObjectsV2Command } = require("@aws-sdk/client-s3");
+const {
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} = require("@aws-sdk/client-s3");
 const { config } = require("dotenv");
 const SendUsersWithNoAccount = require("../models/SendUsersWithNoAccount");
 const { OAuth2Client } = require("google-auth-library");
@@ -1662,6 +1665,9 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
     // Save the IP address as the recipient's signed IP
     recipient.recipientSignedIp = ipAddress;
+    if (recipient.recipientViewedIp === null) {
+      recipient.recipientViewedIp = ipAddress;
+    }
     for (const phReq of placeholdersFromReq) {
       const { email, type, value } = phReq;
       const docPlaceholder = document.placeholders.find(
@@ -1700,40 +1706,38 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         docPlaceholder.value = value;
       }
     }
-
-    // Save the updated senderUser
     await senderUser.save();
 
-    // 6. If all recipients have signed, generate the final PDF with overlays
     const allSigned = document.recipients.every((r) => r.status === "signed");
     if (allSigned) {
       const pdfDoc = await PDFDocument.create();
-      // Embed Helvetica font for footer and text overlays.
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const fontSize = 12;
-      const margin = 20; // Margin from page edge for the footer.
-
-      // Load the check icon image from assets.
-      // IMPORTANT: Ensure this file is a PNG (or convert your SVG to PNG externally).
+      const margin = 20;
+      const placeholderTextSize = 32;
+      const footerFontSize = 32;
       const checkIconPath = path.join(__dirname, "../assets/check.png");
       let checkIconBytes;
       try {
         checkIconBytes = fs.readFileSync(checkIconPath);
       } catch (err) {
         console.error("Error reading check icon file:", err);
-        // Fallback to a simple text icon if necessary.
         checkIconBytes = null;
       }
       let checkIconImage;
       if (checkIconBytes) {
         checkIconImage = await pdfDoc.embedPng(checkIconBytes);
       }
-      // Define dimensions for the icon.
-      const iconWidth = 20;
-      const iconHeight = 20;
+      // Increased dimensions for the footer icon.
+      const footerIconWidth = 32;
+      const footerIconHeight = 32;
 
-      // Process each page image.
-      for (const pageImageUrl of document.ImageUrls) {
+      // Process each page image using its index (pageIndex starts at 0).
+      for (
+        let pageIndex = 0;
+        pageIndex < document.ImageUrls.length;
+        pageIndex++
+      ) {
+        const pageImageUrl = document.ImageUrls[pageIndex];
         const response = await axios.get(pageImageUrl, {
           responseType: "arraybuffer",
         });
@@ -1750,11 +1754,20 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           height: pageHeight,
         });
 
-        // Overlay placeholders.
+        // Overlay placeholders (only on the page matching pageNumber).
         for (const ph of document.placeholders) {
+          // Use the provided pageNumber property (pages start at 1).
+          if (ph.pageNumber && parseInt(ph.pageNumber) !== pageIndex + 1) {
+            continue;
+          }
           if (ph.value) {
             const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
-            const posY = (parseFloat(ph.position.y) / 100) * pageHeight;
+            const elementHeight =
+              (parseFloat(ph.size.height) / 100) * pageHeight;
+            const posY =
+              pageHeight -
+              (parseFloat(ph.position.y) / 100) * pageHeight -
+              elementHeight;
             const width = (parseFloat(ph.size.width) / 100) * pageWidth;
             const height = (parseFloat(ph.size.height) / 100) * pageHeight;
 
@@ -1781,7 +1794,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
               page.drawText(ph.value, {
                 x: posX,
                 y: posY,
-                size: 12,
+                size: placeholderTextSize,
                 font: font,
                 color: rgb(0, 0, 0),
               });
@@ -1789,42 +1802,42 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           }
         }
 
-        // Add footer at the bottom-right of the page.
-        // Footer: icon + a 5px gap + "Secured via signbuddy" text.
-        const footerText = "Secured via signbuddy";
-        const textWidth = font.widthOfTextAtSize(footerText, fontSize);
-        const totalFooterWidth = iconWidth + 5 + textWidth;
-        // Position footer with margin from right and bottom.
-        const footerX = pageWidth - totalFooterWidth - margin;
-        const footerY = margin; // Bottom margin (since PDF origin is bottom-left).
+        // Optionally, add footer only on a specific page if document.footerPage is provided.
+        // Otherwise, add the footer to every page.
+        if (!document.footerPage || document.footerPage == pageIndex + 1) {
+          const footerText = "Secured via signbuddy";
+          const textWidth = font.widthOfTextAtSize(footerText, footerFontSize);
+          const totalFooterWidth = footerIconWidth + 5 + textWidth;
+          const footerX = pageWidth - totalFooterWidth - margin;
+          const footerY = margin; // Bottom margin (PDF origin is bottom-left).
 
-        // Draw the icon if available.
-        if (checkIconImage) {
-          page.drawImage(checkIconImage, {
-            x: footerX,
-            y: footerY,
-            width: iconWidth,
-            height: iconHeight,
-          });
-        } else {
-          // Fallback: draw a Unicode check mark.
-          page.drawText("✓", {
-            x: footerX,
-            y: footerY,
-            size: iconHeight,
+          // Draw the check icon if available.
+          if (checkIconImage) {
+            page.drawImage(checkIconImage, {
+              x: footerX,
+              y: footerY,
+              width: footerIconWidth,
+              height: footerIconHeight,
+            });
+          } else {
+            // Fallback: draw a Unicode check mark.
+            page.drawText("✓", {
+              x: footerX,
+              y: footerY,
+              size: footerIconHeight,
+              font: font,
+              color: rgb(0, 0, 0),
+            });
+          }
+          // Draw the footer text next to the icon with a 5px gap.
+          page.drawText(footerText, {
+            x: footerX + footerIconWidth + 5,
+            y: footerY + (footerIconHeight - footerFontSize) / 2,
+            size: footerFontSize,
             font: font,
             color: rgb(0, 0, 0),
           });
         }
-        // Draw the footer text next to the icon with a 5px gap.
-        page.drawText(footerText, {
-          x: footerX + iconWidth + 5,
-          // Adjust y position to vertically center text with the icon.
-          y: footerY + (iconHeight - fontSize) / 2,
-          size: fontSize,
-          font: font,
-          color: rgb(0, 0, 0),
-        });
       }
 
       // Save the PDF and upload.
@@ -2336,7 +2349,6 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
   if (!fs.existsSync(processDir)) {
     fs.mkdirSync(processDir, { recursive: true });
   }
-  console.log(`Created process directory: ${processDir}`);
 
   let pdfBuffer;
   let docUrl;
@@ -2427,6 +2439,7 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       documentName: originalName,
       sentAt: date,
       documentCreationIp: ipAddress,
+      uniqueId: uniqueId,
     };
 
     // Also create a new draft object to push into user.drafts.
@@ -2449,7 +2462,6 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       },
       { new: true, runValidators: true }
     );
-    console.log(updatedUser);
 
     res.status(200).json({
       message: "Converted successfully",
@@ -2712,7 +2724,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
         };
         try {
           const listCommand = new ListObjectsV2Command(listParams);
-          const listResponse = await s3Client.send(listCommand);
+          const listResponse = await this.s3Client.send(listCommand);
           if (listResponse.Contents && listResponse.Contents.length > 0) {
             listResponse.Contents.forEach((item) => {
               keysToDelete.push({ Key: item.Key });
@@ -2736,8 +2748,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
 
     try {
       const deleteCommand = new DeleteObjectsCommand(deleteParams);
-      const deleteResponse = await s3Client.send(deleteCommand);
-      console.log("S3 deletion response:", deleteResponse);
+      const deleteResponse = await this.s3Client.send(deleteCommand);
     } catch (error) {
       console.error("Error deleting S3 objects:", error);
     }
@@ -2916,31 +2927,6 @@ exports.updateDraft = asyncHandler(async (req, res, next) => {
   });
 });
 
-// exports.createOrUpdatePlans = asyncHandler(async (req, res, next) => {
-//   const { creditPackages, subscriptionPlans } = req.body;
-//   if (!creditPackages || !subscriptionPlans) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Both creditPackages and subscriptionPlans are required",
-//     });
-//   }
-
-//   // Check if a Plans document already exists
-//   let plans = await Plans.findOne({});
-//   if (plans) {
-//     // Update existing document
-//     plans.creditPackages = creditPackages;
-//     plans.subscriptionPlans = subscriptionPlans;
-//   } else {
-//     // Create a new Plans document
-//     plans = new Plans({ creditPackages, subscriptionPlans });
-//   }
-//   await plans.save();
-//   res.status(200).json({
-//     success: true,
-//     plans,
-//   });
-// });
 exports.getPlans = asyncHandler(async (req, res, next) => {
   const plans = await Plans.findOne({});
   if (!plans) {
@@ -2986,3 +2972,29 @@ exports.getCounter = async (req, res, next) => {
     next(err);
   }
 };
+
+// exports.createOrUpdatePlans = asyncHandler(async (req, res, next) => {
+//   const { creditPackages, subscriptionPlans } = req.body;
+//   if (!creditPackages || !subscriptionPlans) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Both creditPackages and subscriptionPlans are required",
+//     });
+//   }
+
+//   // Check if a Plans document already exists
+//   let plans = await Plans.findOne({});
+//   if (plans) {
+//     // Update existing document
+//     plans.creditPackages = creditPackages;
+//     plans.subscriptionPlans = subscriptionPlans;
+//   } else {
+//     // Create a new Plans document
+//     plans = new Plans({ creditPackages, subscriptionPlans });
+//   }
+//   await plans.save();
+//   res.status(200).json({
+//     success: true,
+//     plans,
+//   });
+// });
