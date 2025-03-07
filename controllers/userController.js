@@ -2240,6 +2240,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
     console.error("Error fetching avatars:", error);
   }
 
+  // Process sender's documentsSent for recentDocs
   const recentDocs = user.documentsSent
     .filter((doc) => doc.documentKey) // Ensure documentKey is not empty
     .map((doc) => {
@@ -2287,6 +2288,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       };
     });
 
+  // Process drafts
   const draftsList = user.drafts
     .filter((draft) => draft.fileKey)
     .map((draft) => ({
@@ -2297,11 +2299,20 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       time: formatTimeAgo(new Date(draft.uploadedAt)),
     }));
 
-  const incomingAgreements = user.incomingAgreements
-    .filter((agreement) => agreement.agreementKey)
-    .map((agreement) => {
-      // Use allRecipients from the agreement (if available)
-      const recipients = agreement.allRecipients || [];
+  // -------------------------------
+  // Fetch incomingAgreements from the global Agreement model using agreementId
+  // -------------------------------
+  const incomingAgreementIds = user.incomingAgreements.map(
+    (item) => item.agreementId
+  );
+  let incomingAgreements = [];
+  if (incomingAgreementIds.length > 0) {
+    const agreementsFromDB = await Agreement.find({
+      _id: { $in: incomingAgreementIds },
+    });
+
+    incomingAgreements = agreementsFromDB.map((agreement) => {
+      const recipients = agreement.recipients || [];
       const recipientDetails = recipients.map((r) => {
         const randomAvatar =
           !r.avatar && avatars.length > 0
@@ -2317,7 +2328,6 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
         };
       });
 
-      // Compute status based on recipient statuses.
       const recipientStatuses = recipients.map((r) => r.status);
       let computedStatus = "pending";
       if (!recipientStatuses || recipientStatuses.length === 0) {
@@ -2327,10 +2337,9 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       } else if (recipientStatuses.includes("viewed")) {
         computedStatus = "viewed";
       }
-      const newDate = Date.now();
 
       return {
-        agreementKey: agreement.agreementKey,
+        agreementKey: agreement.documentKey, // or use agreement._id if preferred
         senderEmail: agreement.senderEmail,
         imageUrls: agreement.imageUrls,
         title: agreement.title,
@@ -2338,9 +2347,10 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
         receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
         status: computedStatus,
         recipients: recipientDetails,
-        documentCreationTime: newDate,
+        documentCreationTime: agreement.receivedAt,
       };
     });
+  }
 
   res.status(200).json({
     recentDocuments: recentDocs,
