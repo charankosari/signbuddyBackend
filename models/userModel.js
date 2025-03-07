@@ -23,33 +23,7 @@ const CreditHistorySchema = new mongoose.Schema({
     type: String,
   },
 });
-const IncomingAgreementSchema = new mongoose.Schema({
-  agreementKey: { type: String, required: true },
-  senderEmail: { type: String, required: true },
-  imageUrls: { type: [String], default: [] },
-  placeholders: { type: Array, default: [] },
-  signedDocument: { type: String, default: null },
-  allRecipients: [
-    {
-      email: { type: String },
-      userName: { type: String },
-      status: {
-        type: String,
-        enum: ["pending", "signed", "viewed", "rejected"],
-        default: "pending",
-      },
-      avatar: { type: String },
-      statusTime: { type: Date, default: Date.now() },
-    },
-  ],
-  title: { type: String },
-  receivedAt: { type: Date, default: Date.now },
-  status: {
-    type: String,
-    enum: ["pending", "signed", "rejected"],
-    default: "pending",
-  },
-});
+
 const BillingHistorySchema = new mongoose.Schema({
   paymentId: { type: String, required: true },
   invoiceUrl: { type: String, required: true },
@@ -243,10 +217,12 @@ const userSchema = new mongoose.Schema({
     default: [],
     select: false,
   },
-  incomingAgreements: {
-    type: [IncomingAgreementSchema],
-    default: [],
-  },
+  incomingAgreements: [
+    {
+      agreementId: { type: mongoose.Schema.Types.ObjectId, ref: "Agreement" },
+      // You might cache some data, but keep the dynamic status in the global model.
+    },
+  ],
   billingHistory: {
     type: [BillingHistorySchema],
     default: [],

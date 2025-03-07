@@ -6,6 +6,7 @@ const { sendEmail } = require("../utils/sendEmail");
 const crypto = require("crypto");
 const TempOTP = require("../models/TempModel");
 const DeletedAccounts = require("../models/DeletedAccounts");
+const Agreement = require("../models/AgreementSchema");
 const Plans = require("../models/PlansSchema");
 const bcrypt = require("bcrypt");
 const { Poppler } = require("node-poppler");
@@ -1308,8 +1309,6 @@ exports.register = asyncHandler(async (req, res, next) => {
         "Registration successful. You have been awarded with 30 credits.";
     }
   }
-
-  // Check if this email exists in SendUsersWithNoAccount.
   const sendUserRecord = await SendUsersWithNoAccount.findOne({ email });
   if (sendUserRecord) {
     // Merge incoming agreements from sendUserRecord to user's incomingAgreements.
@@ -1405,7 +1404,7 @@ exports.googleAuth = asyncHandler(async (req, res, next) => {
         sendUserRecord.incomingAgreements
       );
     }
-    // Delete the record from SendUsersWithNoAccount
+    // Delete the record from SendUsersWithNoAccount.
     await SendUsersWithNoAccount.deleteOne({ email });
   }
   // Save the new user
@@ -1669,11 +1668,17 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     if (!recipient) {
       return res.status(404).json({ error: "Recipient not found in document" });
     }
+    // If already signed, return early (optional)
+    if (recipient.status === "signed") {
+      return res
+        .status(200)
+        .json({ message: "Document already marked as signed" });
+    }
+
     recipient.status = "signed";
     recipient.statusTime = new Date();
     const ipAddress =
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
-    // Save the IP address as the recipient's signed IP
     const nowDate = Date.now();
     recipient.recipientSignedIp = ipAddress;
     if (recipient.recipientViewedIp === null) {
@@ -1683,6 +1688,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       recipient.recipientViewedTime = nowDate;
     }
     recipient.recipientSignedTime = nowDate;
+
     // Update placeholders with any new signature or text/date values
     for (const phReq of placeholdersFromReq) {
       const { email, type, value } = phReq;
@@ -1718,8 +1724,46 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       }
     }
 
-    // Save the updated senderUser
+    // Save the updated senderUser document
     await senderUser.save();
+
+    // -----------------------------------------------------------------
+    // Update the global Agreement document (if exists) to reflect the changes
+    // -----------------------------------------------------------------
+    const agreement = await Agreement.findOne({ documentKey });
+    if (agreement) {
+      // Update the corresponding recipient in the Agreement's recipients array
+      const globalRecipient = agreement.recipients.find(
+        (rec) => rec.email === presentUser.email
+      );
+      if (globalRecipient) {
+        globalRecipient.status = "signed";
+        globalRecipient.statusTime = new Date();
+        // Set the documentSignedTime to record when the document was signed
+        globalRecipient.documentSignedTime = new Date();
+        if (globalRecipient.documentViewedTime === null) {
+          globalRecipient.documentViewedTime = new Date();
+        }
+      }
+      // Update placeholders in the global Agreement (if applicable)
+      for (const phReq of placeholdersFromReq) {
+        const { email, type, value } = phReq;
+        const globalPlaceholder = agreement.placeholders.find(
+          (p) => p.email === email && p.type === type
+        );
+        if (!globalPlaceholder) continue;
+        if (type === "signature" && email === presentUser.email) {
+          // Replicate the value set in the sender's document
+          const localPh = document.placeholders.find(
+            (p) => p.email === email && p.type === type
+          );
+          globalPlaceholder.value = localPh ? localPh.value : "";
+        } else if ((type === "text" || type === "date") && value) {
+          globalPlaceholder.value = value;
+        }
+      }
+      await agreement.save();
+    }
 
     // 5. If all recipients have signed, generate the final PDF with overlays
     const allSigned = document.recipients.every((r) => r.status === "signed");
@@ -1727,7 +1771,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       const pdfDoc = await PDFDocument.create();
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-      // Large font sizes for demonstration; adjust to suit your design
+      // Settings for placeholder and footer text sizes
       const placeholderTextSize = 52;
       const footerFontSize = 32;
 
@@ -1753,13 +1797,11 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       const footerIconWidth = 32;
       const footerIconHeight = 32;
 
-      // Footer text for the right side
+      // Footer texts
       const rightFooterText = "Secured via signbuddy";
-
-      // Left side footer text: DocumentId - documentKey
       const leftFooterText = `DocumentId - ${document.uniqueId}`;
 
-      // Process each page image using its index (pageIndex starts at 0).
+      // Process each page image
       for (
         let pageIndex = 0;
         pageIndex < document.ImageUrls.length;
@@ -1782,13 +1824,11 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           height: pageHeight,
         });
 
-        // Overlay placeholders (only on the page matching pageNumber)
+        // Overlay placeholders on the corresponding page
         for (const ph of document.placeholders) {
-          if (ph.pageNumber && parseInt(ph.pageNumber) !== pageIndex + 1) {
+          if (ph.pageNumber && parseInt(ph.pageNumber) !== pageIndex + 1)
             continue;
-          }
           if (ph.value) {
-            // Convert top-based % to PDF coordinates
             const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
             const elementHeight =
               (parseFloat(ph.size.height) / 100) * pageHeight;
@@ -1829,28 +1869,21 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           }
         }
 
-        // Add footer if no specific page is set OR if this page is the specified footer page
+        // Add footer to the page (if applicable)
         if (!document.footerPage || document.footerPage == pageIndex + 1) {
-          // Measure the right text width
           const rightTextWidth = font.widthOfTextAtSize(
             rightFooterText,
             footerFontSize
           );
-          // Total width = icon + gap + text
           const totalRightFooterWidth = footerIconWidth + 5 + rightTextWidth;
-
-          // Coordinates for left footer text
           const leftFooterTextX = leftMargin;
           const leftFooterTextY = bottomMargin;
-
-          // Coordinates for right footer icon & text
           const iconX = pageWidth - rightMargin - totalRightFooterWidth;
           const iconY = bottomMargin;
           page.pushOperators(
             pushGraphicsState(),
             setGraphicsState(PDFName.of("GS0"))
           );
-          // 1) Draw the left footer text
           page.drawText(leftFooterText, {
             x: leftFooterTextX,
             y: leftFooterTextY,
@@ -1858,7 +1891,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
             font: font,
             color: rgb(0, 0, 0),
           });
-          // 2) Draw the check icon on the right
           if (checkIconImage) {
             page.drawImage(checkIconImage, {
               x: iconX,
@@ -1867,7 +1899,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
               height: footerIconHeight,
             });
           } else {
-            // Fallback: draw a check mark
             page.drawText("✓", {
               x: iconX,
               y: iconY,
@@ -1876,9 +1907,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
               color: rgb(0, 0, 0),
             });
           }
-
-          // 3) Draw the "Secured via signbuddy" text next to the icon
-
           page.drawText(rightFooterText, {
             x: iconX + footerIconWidth + 5,
             y: iconY + (footerIconHeight - footerFontSize) / 2,
@@ -1905,51 +1933,36 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         color: rgb(0, 0, 0),
       });
 
-      // Subtext: "Document is verified & completed with signbuddy.in"
-      // We'll also make "signbuddy.in" clickable
       const subTitle = "Document is verified & completed with signbuddy.in";
       auditPage.drawText(subTitle, {
         x: 50,
         y: auditH - 110,
         size: 12,
         font,
-        color: rgb(0, 0, 1), // Blue color to hint it's a link
+        color: rgb(0, 0, 1),
       });
 
-      // Make signbuddy.in clickable
-      // We'll figure out where the "signbuddy.in" substring is in that line.
-      // For simplicity, assume it's near the end. Let's measure the text width.
       const fullTextWidth = font.widthOfTextAtSize(subTitle, 12);
       const linkText = "signbuddy.in";
       const linkTextWidth = font.widthOfTextAtSize(linkText, 12);
-
-      // We'll define a bounding box for the link
-      const linkX = 50 + (fullTextWidth - linkTextWidth); // near the end
+      const linkX = 50 + (fullTextWidth - linkTextWidth);
       const linkY = auditH - 110;
-      const linkHeight = 12; // same as text size
+      const linkHeight = 12;
 
-      // Create a link annotation
-      // PDF coords: [left, bottom, right, top]
       const linkAnnotation = auditPage.doc.context.obj({
         Type: "Annot",
         Subtype: "Link",
-        Rect: [
-          linkX,
-          linkY, // y bottom
-          linkX + linkTextWidth,
-          linkY + linkHeight, // y top
-        ],
+        Rect: [linkX, linkY, linkX + linkTextWidth, linkY + linkHeight],
         Border: [0, 0, 0],
         A: {
           Type: "Action",
           S: "URI",
-          URI: "https://signbuddy.in", // target link
+          URI: "https://signbuddy.in",
         },
         Flags: AnnotationFlags.Print,
       });
       auditPage.node.addAnnot(linkAnnotation);
 
-      // Document Title, ID, or Key
       auditPage.drawText(`Title: ${document.documentName || "Untitled"}`, {
         x: 50,
         y: auditH - 140,
@@ -1968,7 +1981,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         }
       );
 
-      // Example of times (if you stored them):
       const creationTime = document.documentCreationTime
         ? new Date(document.documentCreationTime).toLocaleString()
         : "N/A";
@@ -1980,7 +1992,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         color: rgb(0, 0, 0),
       });
 
-      // Next, a heading for the "Complete Audit Record"
       auditPage.drawText("Complete Audit Record", {
         x: 50,
         y: auditH - 220,
@@ -1989,11 +2000,8 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         color: rgb(0, 0, 0),
       });
 
-      // Loop through recipients to display IPs and timestamps
       let yOffset = auditH - 250;
       for (const rec of document.recipients) {
-        // You can combine data however you like
-        // e.g., "Name: rec.userName / Email: rec.email"
         const recLine1 = `Name: ${rec.userName || "N/A"} | Email: ${rec.email}`;
         auditPage.drawText(recLine1, {
           x: 50,
@@ -2003,8 +2011,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           color: rgb(0, 0, 0),
         });
         yOffset -= 20;
-
-        // Show IP and SignedTime
         const signedTime = rec.recipientSignedTime
           ? new Date(rec.recipientSignedTime).toLocaleString()
           : "N/A";
@@ -2022,7 +2028,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         });
         yOffset -= 30;
       }
-      // Save the PDF and upload
       const pdfBytes = await pdfDoc.save();
       const pdfKey = `signedDocuments/${documentKey}.pdf`;
       const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
@@ -2034,16 +2039,15 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       console.log("Final signed PDF URL:", pdfUpload.url);
       document.signedDocument = pdfUpload.url;
 
-      // If there are CC recipients, email them a link to the final PDF
       if (document.CC && document.CC.length > 0) {
         try {
           const documentUrl = pdfUpload.url;
-          const body = `
+          const ccBody = `
             <p>Please click the link below to download the final signed document:</p>
             <p><a href="${documentUrl}" target="_blank">Download Document</a></p>
           `;
           for (const ccEmail of document.CC) {
-            await sendEmail(ccEmail, "Final Signed Document CC", body);
+            await sendEmail(ccEmail, "Final Signed Document CC", ccBody);
           }
         } catch (err) {
           console.error("Error sending final document to CC emails:", err);
@@ -2063,50 +2067,76 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
 
 exports.viewedDocument = asyncHandler(async (req, res, next) => {
   try {
+    // Get the currently logged-in user (the recipient)
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(401).json({ error: "Unauthorized user" });
     }
     const { documentKey, senderEmail } = req.body;
-
     if (!documentKey || !senderEmail) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Find the sender
     const sender = await User.findOne({ email: senderEmail });
-
     if (!sender) {
       return res.status(404).json({ error: "Sender not found" });
     }
+
+    // Find the document in sender's documentsSent
     const document = sender.documentsSent.find(
       (doc) => doc.documentKey === documentKey
     );
     if (!document) {
       return res.status(404).json({ error: "Document not found" });
     }
+
+    // Find the recipient in the sender's document recipients
     const recipient = document.recipients.find(
       (rec) => rec.email === user.email
     );
     if (!recipient) {
       return res.status(404).json({ error: "Recipient not found in document" });
     }
+
+    // If already marked viewed, return early
     if (recipient.status === "viewed") {
       return res
         .status(200)
         .json({ message: "Document already marked as viewed" });
     }
+
+    // Capture IP address and update sender's document recipient status
     const ipAddress =
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
-
     recipient.status = "viewed";
     recipient.statusTime = new Date();
     recipient.recipientViewedIp = ipAddress;
     recipient.recipientViewedTime = Date.now();
     await sender.save();
 
-    const subject = "viewed document";
-    const body = `<h1>${user.userName} viewed document </h1>`;
+    // Update the global Agreement document by finding it using the documentKey
+    const agreement = await Agreement.findOne({ documentKey });
+    if (agreement) {
+      // Find the recipient entry in the Agreement's recipients array
+      const globalRecipient = agreement.recipients.find(
+        (rec) => rec.email === user.email
+      );
+      if (globalRecipient) {
+        globalRecipient.status = "viewed";
+        globalRecipient.statusTime = new Date();
+        globalRecipient.documentViewedTime = new Date();
+
+        // Optionally, add additional fields (e.g. recipientViewedIp) if you update the schema
+      }
+      await agreement.save();
+    }
+
+    // Optionally, notify the sender via email that the document was viewed
+    const subject = "Document Viewed";
+    const body = `<h1>${user.userName} viewed your document</h1>`;
     sendEmail(senderEmail, subject, body);
+
     return res
       .status(200)
       .json({ message: "Document status updated to viewed" });
@@ -2818,49 +2848,49 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       creditsUsed: "10",
       timestamp: date,
     });
+    const agreementData = {
+      documentKey: fileKey,
+      senderEmail: user.email,
+      imageUrls: d.ImageUrls || [],
+      placeholders: placeholders,
+      receivedAt: date,
+      title: d.documentName || "",
+      recipients: recipients,
+      customEmail: customEmail, // Optional: store custom email details if desired
+    };
+    const agreement = new Agreement(agreementData);
+    await agreement.save();
+    const agreementId = agreement._id;
 
-    // For each recipient, update their incoming agreements or create a record for non-registered users.
+    // For each recipient, store the agreement reference.
     for (let i = 0; i < emails.length; i++) {
       const recipientEmail = emails[i];
-      const agreementData = {
-        agreementKey: fileKey,
-        senderEmail: user.email,
-        imageUrls: d.ImageUrls || [],
-        placeholders: placeholders,
-        receivedAt: date,
-        title: d && d.documentName ? d.documentName : "",
-      };
-      const IncommingAgreementData = {
-        agreementKey: fileKey,
-        senderEmail: user.email,
-        imageUrls: d.ImageUrls || [],
-        placeholders: placeholders,
-        receivedAt: date,
-        title: d && d.documentName ? d.documentName : "",
-        allRecipients: recipients,
-      };
+      // Find recipient as a registered user.
       const recipientUser = await User.findOne({
         email: recipientEmail,
       }).select("incomingAgreements");
       if (recipientUser) {
-        recipientUser.incomingAgreements.push(IncommingAgreementData);
+        // Push the agreement reference.
+        recipientUser.incomingAgreements.push({ agreementId });
         await recipientUser.save();
       } else {
-        // If the recipient does not have an account, update or create a record in SendUsersWithNoAccount.
+        // For non-registered users, update or create a record in SendUsersWithNoAccount.
         let noAccountRecord = await SendUsersWithNoAccount.findOne({
           email: recipientEmail,
         });
         if (!noAccountRecord) {
           noAccountRecord = new SendUsersWithNoAccount({
             email: recipientEmail,
-            incomingAgreements: [IncommingAgreementData],
+            incomingAgreements: [{ agreementId }],
           });
         } else {
-          noAccountRecord.incomingAgreements.push(agreementData);
+          noAccountRecord.incomingAgreements.push({ agreementId });
         }
         await noAccountRecord.save();
       }
     }
+
+    // Remove the document from drafts if present.
     if (user.drafts && user.drafts.length) {
       user.drafts = user.drafts.filter((draft) => draft.fileKey !== fileKey);
     }
