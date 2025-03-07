@@ -9,6 +9,7 @@ const DeletedAccounts = require("../models/DeletedAccounts");
 const Agreement = require("../models/AgreementSchema");
 const Plans = require("../models/PlansSchema");
 const bcrypt = require("bcrypt");
+const pdf = require("html-pdf");
 const { Poppler } = require("node-poppler");
 const {
   PDFDocument,
@@ -1232,6 +1233,295 @@ const emailForPreuser = `<!DOCTYPE html>
   </body>
 </html>
 `;
+const finalHtml = (data, pageWidthMM, pageHeightMM) => {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SignBuddy - Final Page</title>
+  <!-- Font Awesome (optional) -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
+    integrity="sha512-qo3RDXG2sL8s8RZPy1fSGMQ9q4/n0Sm6T0LeDY3YTv1V/sojkBpQcB1eF57a0A6w9u+Vpz/+4ZviExD2c9fQNg=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+  <style>
+    /* Basic reset and font styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      /* We do NOT use display: flex or centering here, so the PDF library captures the full page size */
+      background: #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, sans-serif;
+      color: #333;
+      font-size: 14px;
+      margin: 0;
+      padding: 0;
+    }
+    /* Container with dynamically injected width & height in mm: */
+    .a4-container {
+      width: ${pageWidthMM}mm;
+      height: ${pageHeightMM}mm;
+      margin: 0 auto;
+      padding: 20px;
+      background: #fff;
+      position: relative;
+      overflow: hidden; /* If content goes beyond the page, it’s clipped */
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #444;
+    }
+    .gray-text {
+      color: #777;
+      margin-right: 5px;
+      font-weight: 500;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Basic info table at the top */
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .info-table td {
+      padding: 4px 0;
+      vertical-align: top;
+    }
+
+    /* Section title for the “Complete Audit Record” heading */
+    .section-title {
+      font-size: 16px;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    /* Table for listing created/sent/viewed/signed events */
+    .audit-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .audit-table tr {
+      border-bottom: 1px solid #eee;
+    }
+    .audit-table td {
+      padding: 12px 0;
+    }
+
+    /* Layout for each event row */
+    .audit-entry {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .top-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .left-block {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .icon {
+      font-size: 18px;
+      color: #666;
+    }
+    .participant-name {
+      font-weight: 600;
+      color: #555;
+    }
+    .action-text {
+      color: #666;
+    }
+    .time-text {
+      color: #333;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .ip-line {
+      font-size: 12px;
+      color: #999;
+    }
+
+    /* Footer at the bottom for Document ID and Verified text */
+    .footer {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #666;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="a4-container">
+    <h1>SignBuddy</h1>
+    <p>
+      Document is verified &amp; completed with
+      <a href="https://signbuddy.in" target="_blank">signbuddy.in</a>
+    </p>
+
+    <!-- Info Table -->
+    <table class="info-table">
+      <tr>
+        <td><span class="gray-text">Document Name:</span> ${
+          data.documentName
+        }</td>
+      </tr>
+      <tr>
+        <td><span class="gray-text">Document ID:</span> ${data.documentId}</td>
+      </tr>
+      <tr>
+        <td><span class="gray-text">Document Creation Time:</span> ${
+          data.creationTime
+        }</td>
+      </tr>
+      <tr>
+        <td><span class="gray-text">Document Creation IP:</span> ${
+          data.creationIp
+        }</td>
+      </tr>
+      <tr>
+        <td><span class="gray-text">Completed At:</span> ${
+          data.completedTime
+        }</td>
+      </tr>
+    </table>
+
+    <div class="section-title">Complete Audit Record</div>
+
+    <table class="audit-table">
+      <!-- "Created" row -->
+      <tr>
+        <td>
+          <div class="audit-entry">
+            <div class="top-line">
+              <div class="left-block">
+                <i class="fa-solid fa-user icon"></i>
+                <span class="participant-name">${
+                  data.createdRow.senderName
+                }</span>
+                <span class="action-text">
+                  Created the document (${data.createdRow.senderEmail})
+                </span>
+              </div>
+              <span class="time-text">${data.createdRow.time}</span>
+            </div>
+            <div class="ip-line">IP - ${data.createdRow.ip}</div>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Example "Sent" rows -->
+      ${data.sentRows
+        .map(
+          (row) => `
+      <tr>
+        <td>
+          <div class="audit-entry">
+            <div class="top-line">
+              <div class="left-block">
+                <i class="fa-solid fa-paper-plane icon"></i>
+                <span class="participant-name">${row.recipientName}</span>
+                <span class="action-text">Document sent to ${row.recipientEmail}</span>
+              </div>
+              <span class="time-text">${row.time}</span>
+            </div>
+            <div class="ip-line">IP - ${row.ip}</div>
+          </div>
+        </td>
+      </tr>
+      `
+        )
+        .join("")}
+
+      <!-- Example "Viewed" rows -->
+      ${data.viewedRows
+        .map(
+          (row) => `
+      <tr>
+        <td>
+          <div class="audit-entry">
+            <div class="top-line">
+              <div class="left-block">
+                <i class="fa-solid fa-eye icon"></i>
+                <span class="participant-name">${row.recipientName}</span>
+                <span class="action-text">Document viewed by ${row.recipientEmail}</span>
+              </div>
+              <span class="time-text">${row.time}</span>
+            </div>
+            <div class="ip-line">IP - ${row.ip}</div>
+          </div>
+        </td>
+      </tr>
+      `
+        )
+        .join("")}
+
+      <!-- Example "Signed" rows -->
+      ${data.signedRows
+        .map(
+          (row) => `
+      <tr>
+        <td>
+          <div class="audit-entry">
+            <div class="top-line">
+              <div class="left-block">
+                <i class="fa-solid fa-pen icon"></i>
+                <span class="participant-name">${row.recipientName}</span>
+                <span class="action-text">Signed the document ${row.recipientEmail}</span>
+              </div>
+              <span class="time-text">${row.time}</span>
+            </div>
+            <div class="ip-line">IP - ${row.ip}</div>
+          </div>
+        </td>
+      </tr>
+      `
+        )
+        .join("")}
+    </table>
+
+    <div class="footer">
+      <span>Document ID: ${data.documentId}</span>
+      <span>Verified by SignBuddy</span>
+    </div>
+  </div>
+</body>
+</html>
+`;
+};
 exports.sendOTP = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
@@ -1654,7 +1944,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     const document = senderUser.documentsSent.find(
       (doc) => doc.documentKey === documentKey
     );
-    console.log(document);
     if (!document) {
       return res
         .status(404)
@@ -1700,7 +1989,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       if (type === "signature" && email === presentUser.email) {
         // Handle signature upload
         if (!req.file) continue;
-        console.log(req.file);
         const tempDir = path.join(__dirname, "../temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
         const signatureId = uuidv4();
@@ -1799,7 +2087,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
 
       // Footer texts
       const rightFooterText = "Secured via signbuddy";
-      const leftFooterText = `DocumentId - ${document.uniqueId}`;
+      const leftFooterText = `Document Id - ${document.uniqueId}`;
 
       // Process each page image
       for (
@@ -1921,113 +2209,102 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       // ------------------------------------------------------------------
       // STEP B: ADD AN EXTRA PAGE FOR THE AUDIT RECORD
       // ------------------------------------------------------------------
-      const auditPage = pdfDoc.addPage([612, 792]); // e.g., Letter size
-      const { width: auditW, height: auditH } = auditPage.getSize();
 
-      // Title at top
-      auditPage.drawText("SignBuddy", {
-        x: 50,
-        y: auditH - 80,
-        size: 20,
-        font,
-        color: rgb(0, 0, 0),
-      });
-
-      const subTitle = "Document is verified & completed with signbuddy.in";
-      auditPage.drawText(subTitle, {
-        x: 50,
-        y: auditH - 110,
-        size: 12,
-        font,
-        color: rgb(0, 0, 1),
-      });
-
-      const fullTextWidth = font.widthOfTextAtSize(subTitle, 12);
-      const linkText = "signbuddy.in";
-      const linkTextWidth = font.widthOfTextAtSize(linkText, 12);
-      const linkX = 50 + (fullTextWidth - linkTextWidth);
-      const linkY = auditH - 110;
-      const linkHeight = 12;
-
-      const linkAnnotation = auditPage.doc.context.obj({
-        Type: "Annot",
-        Subtype: "Link",
-        Rect: [linkX, linkY, linkX + linkTextWidth, linkY + linkHeight],
-        Border: [0, 0, 0],
-        A: {
-          Type: "Action",
-          S: "URI",
-          URI: "https://signbuddy.in",
-        },
-        Flags: AnnotationFlags.Print,
-      });
-      auditPage.node.addAnnot(linkAnnotation);
-
-      auditPage.drawText(`Title: ${document.documentName || "Untitled"}`, {
-        x: 50,
-        y: auditH - 140,
-        size: 12,
-        font,
-        color: rgb(0, 0, 0),
-      });
-      auditPage.drawText(
-        `Document ID: ${document.uniqueId || document.documentKey}`,
-        {
-          x: 50,
-          y: auditH - 160,
-          size: 12,
-          font,
-          color: rgb(0, 0, 0),
-        }
-      );
-
+      const docName = document.documentName || "Untitled";
+      const docId = document.uniqueId || document.documentKey;
       const creationTime = document.documentCreationTime
         ? new Date(document.documentCreationTime).toLocaleString()
         : "N/A";
-      auditPage.drawText(`Created At: ${creationTime}`, {
-        x: 50,
-        y: auditH - 180,
-        size: 12,
-        font,
-        color: rgb(0, 0, 0),
-      });
+      const creationIp = document.documentCreationIp || "N/A";
+      const completedTime = new Date().toLocaleString(); // or doc end time
 
-      auditPage.drawText("Complete Audit Record", {
-        x: 50,
-        y: auditH - 220,
-        size: 14,
-        font,
-        color: rgb(0, 0, 0),
-      });
+      // Created row (sender info)
+      const createdRow = {
+        senderName: senderUser.userName || senderUser.email,
+        senderEmail: senderUser.email,
+        time: creationTime,
+        ip: creationIp,
+      };
 
-      let yOffset = auditH - 250;
-      for (const rec of document.recipients) {
-        const recLine1 = `Name: ${rec.userName || "N/A"} | Email: ${rec.email}`;
-        auditPage.drawText(recLine1, {
-          x: 50,
-          y: yOffset,
-          size: 12,
-          font,
-          color: rgb(0, 0, 0),
-        });
-        yOffset -= 20;
-        const signedTime = rec.recipientSignedTime
-          ? new Date(rec.recipientSignedTime).toLocaleString()
-          : "N/A";
-        const ipLine = `Viewed IP: ${
-          rec.recipientViewedIp || "N/A"
-        }  |  Signed IP: ${
-          rec.recipientSignedIp || "N/A"
-        }  |  Signed Time: ${signedTime}`;
-        auditPage.drawText(ipLine, {
-          x: 50,
-          y: yOffset,
-          size: 12,
-          font,
-          color: rgb(0, 0, 0),
-        });
-        yOffset -= 30;
+      // Sent rows: you might store them in doc or track them in recipients
+      // For example, if you have a "documentSentTime" & "documentSentIp" or
+      // if you store each event in an array. We'll just do a dummy example:
+      const sentRows = document.recipients.map((rec) => ({
+        recipientName: rec.userName || rec.email,
+        recipientEmail: rec.email,
+        time: document.documentSentTime
+          ? new Date(document.documentSentTime).toLocaleString()
+          : "N/A",
+        ip: document.documentSentIp || "N/A",
+      }));
+
+      // Viewed rows: if you track "viewed" status/time in rec.recipientViewedTime
+      const viewedRows = document.recipients
+        .filter((rec) => rec.status === "viewed" || rec.recipientViewedTime)
+        .map((rec) => ({
+          recipientName: rec.userName || rec.email,
+          recipientEmail: rec.email,
+          time: rec.recipientViewedTime
+            ? new Date(rec.recipientViewedTime).toLocaleString()
+            : "N/A",
+          ip: rec.recipientViewedIp || "N/A",
+        }));
+
+      // Signed rows: for each rec with status === "signed"
+      const signedRows = document.recipients
+        .filter((rec) => rec.status === "signed")
+        .map((rec) => ({
+          recipientName: rec.userName || rec.email,
+          recipientEmail: rec.email,
+          time: rec.recipientSignedTime
+            ? new Date(rec.recipientSignedTime).toLocaleString()
+            : "N/A",
+          ip: rec.recipientSignedIp || "N/A",
+        }));
+
+      const finalData = {
+        documentName: docName,
+        documentId: docId,
+        creationTime,
+        creationIp,
+        completedTime,
+        createdRow,
+        sentRows,
+        viewedRows,
+        signedRows,
+      };
+      const { width: firstPageWidth, height: firstPageHeight } = pdfDoc
+        .getPage(0)
+        .getSize();
+      function pointsToMM(points) {
+        return (points / 72) * 25.4;
       }
+
+      // Convert each dimension:
+      const pageWidthMM = pointsToMM(firstPageWidth).toFixed(2);
+      const pageHeightMM = pointsToMM(firstPageHeight).toFixed(2);
+      const options = {
+        width: `${pageWidthMM}mm`,
+        height: `${pageHeightMM}mm`,
+      };
+      const finalThing = finalHtml(finalData, pageWidthMM, pageHeightMM);
+
+      const htmlPdfBuffer = await new Promise((resolve, reject) => {
+        pdf.create(finalThing, options).toBuffer((err, buffer) => {
+          if (err) return reject(err);
+          resolve(buffer);
+        });
+      });
+
+      // 3. Load that PDF with pdf-lib
+      const appendedPdfDoc = await PDFDocument.load(htmlPdfBuffer);
+
+      // 4. Copy each page from appendedPdfDoc into your main pdfDoc
+      const appendedPages = await pdfDoc.copyPages(
+        appendedPdfDoc,
+        appendedPdfDoc.getPageIndices()
+      );
+      appendedPages.forEach((page) => pdfDoc.addPage(page));
       const pdfBytes = await pdfDoc.save();
       const pdfKey = `signedDocuments/${documentKey}.pdf`;
       const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
@@ -2666,6 +2943,7 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       documentName: originalName,
       sentAt: date,
       documentCreationIp: ipAddress,
+      documentCreationTime: Date.now(),
       uniqueId: uniqueId,
     };
 
@@ -3230,3 +3508,41 @@ exports.getCounter = async (req, res, next) => {
 //     plans,
 //   });
 // });
+
+function ConvertToPdf(htmlContent) {
+  return new Promise((resolve, reject) => {
+    if (!htmlContent || typeof htmlContent !== "string") {
+      return reject(new Error("Invalid HTML content"));
+    }
+    const options = { format: "A4" };
+    pdf.create(htmlContent, options).toBuffer((err, buffer) => {
+      if (err) return reject(err);
+      resolve(buffer);
+    });
+  });
+}
+
+exports.ConvertToPdfEndpoint = asyncHandler(async (req, res, next) => {
+  try {
+    const { htmlContent } = req.body;
+    if (!htmlContent) {
+      return res.status(400).json({ error: "No HTML content provided" });
+    }
+
+    const pdfBuffer = await ConvertToPdf(htmlContent);
+
+    const tempDir = path.join(__dirname, "../temp");
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const fileName = `${uuidv4()}.pdf`;
+    const filePath = path.join(tempDir, fileName);
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error("Error:", err.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
