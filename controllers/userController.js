@@ -14,7 +14,9 @@ const {
   rgb,
   StandardFonts,
   pushGraphicsState,
+  PDFName,
   popGraphicsState,
+  AnnotationFlags,
   setGraphicsState,
 } = require("pdf-lib");
 const axios = require("axios");
@@ -1653,6 +1655,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     const document = senderUser.documentsSent.find(
       (doc) => doc.documentKey === documentKey
     );
+    console.log(document);
     if (!document) {
       return res
         .status(404)
@@ -1671,11 +1674,15 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     const ipAddress =
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
     // Save the IP address as the recipient's signed IP
+    const nowDate = Date.now();
     recipient.recipientSignedIp = ipAddress;
     if (recipient.recipientViewedIp === null) {
       recipient.recipientViewedIp = ipAddress;
     }
-
+    if (recipient.recipientViewedTime === null) {
+      recipient.recipientViewedTime = nowDate;
+    }
+    recipient.recipientSignedTime = nowDate;
     // Update placeholders with any new signature or text/date values
     for (const phReq of placeholdersFromReq) {
       const { email, type, value } = phReq;
@@ -1839,7 +1846,10 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           // Coordinates for right footer icon & text
           const iconX = pageWidth - rightMargin - totalRightFooterWidth;
           const iconY = bottomMargin;
-          page.pushOperators(setGraphicsState(PDFName.of("GS0")));
+          page.pushOperators(
+            pushGraphicsState(),
+            setGraphicsState(PDFName.of("GS0"))
+          );
           // 1) Draw the left footer text
           page.drawText(leftFooterText, {
             x: leftFooterTextX,
@@ -1848,9 +1858,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
             font: font,
             color: rgb(0, 0, 0),
           });
-          page.pushOperators(popGraphicsState());
           // 2) Draw the check icon on the right
-          page.pushOperators(setGraphicsState(PDFName.of("GS0")));
           if (checkIconImage) {
             page.drawImage(checkIconImage, {
               x: iconX,
@@ -1868,10 +1876,9 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
               color: rgb(0, 0, 0),
             });
           }
-          page.pushOperators(popGraphicsState());
 
           // 3) Draw the "Secured via signbuddy" text next to the icon
-          page.pushOperators(setGraphicsState(PDFName.of("GS0")));
+
           page.drawText(rightFooterText, {
             x: iconX + footerIconWidth + 5,
             y: iconY + (footerIconHeight - footerFontSize) / 2,
@@ -1962,6 +1969,7 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
     recipient.status = "viewed";
     recipient.statusTime = new Date();
     recipient.recipientViewedIp = ipAddress;
+    recipient.recipientViewedTime = Date.now();
     await sender.save();
 
     const subject = "viewed document";
@@ -2157,6 +2165,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       } else if (recipientStatuses.includes("viewed")) {
         computedStatus = "viewed";
       }
+      const newDate = Date.now();
 
       return {
         agreementKey: agreement.agreementKey,
@@ -2167,6 +2176,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
         receivedAt: formatTimeAgo(new Date(agreement.receivedAt)),
         status: computedStatus,
         recipients: recipientDetails,
+        documentCreationTime: newDate,
       };
     });
 
@@ -2646,6 +2656,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     const docIndex = user.documentsSent.findIndex(
       (doc) => doc.documentKey === fileKey
     );
+    const newDate = Date.now();
     if (docIndex !== -1) {
       user.documentsSent[docIndex] = {
         ...user.documentsSent[docIndex],
@@ -2653,8 +2664,12 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         documentKey: fileKey,
         documentName: user.documentsSent[docIndex].documentName,
         ImageUrls: user.documentsSent[docIndex].ImageUrls,
-
+        uniqueId: user.documentsSent[docIndex].uniqueId,
         sentAt: date,
+        documentCreationIp: user.documentsSent[docIndex].documentCreationIp,
+        documentCreationTime: user.documentsSent[docIndex].documentCreationTime,
+        documentSentTime: newDate,
+        documentSendIp: ipAddress,
         recipients: recipients,
         placeholders: placeholders,
         CC: ccEmails,

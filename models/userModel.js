@@ -119,6 +119,8 @@ const userSchema = new mongoose.Schema({
         uniqueId: { type: String },
         documentCreationIp: { type: String },
         documentSentIp: { type: String },
+        documentCreationTime: { type: Date },
+        documentSentTime: { type: Date },
         documentName: { type: String },
         ImageUrls: { type: [String], default: [] },
         signedDocument: { type: String, default: null },
@@ -144,6 +146,8 @@ const userSchema = new mongoose.Schema({
             viewed: { type: Boolean, default: false },
             recipientViewedIp: { type: String, default: null },
             recipientSignedIp: { type: String, default: null },
+            recipientViewedTime: { type: Date },
+            recipientSignedTime: { type: Date },
           },
         ],
         placeholders: {
