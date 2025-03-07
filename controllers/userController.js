@@ -1713,7 +1713,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       const pdfDoc = await PDFDocument.create();
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const margin = 20;
-      const placeholderTextSize = 32;
+      const placeholderTextSize = 52;
       const footerFontSize = 32;
       const checkIconPath = path.join(__dirname, "../assets/check.png");
       let checkIconBytes;
