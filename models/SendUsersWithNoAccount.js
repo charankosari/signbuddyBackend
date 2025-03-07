@@ -20,7 +20,7 @@ const SendUsersWithNoAccountSchema = new mongoose.Schema({
           },
           avatar: { type: String },
           statusTime: { type: Date, default: Date.now() },
-          username: { type: String, required: true },
+          userName: { type: String, required: true },
         },
       ],
       status: {

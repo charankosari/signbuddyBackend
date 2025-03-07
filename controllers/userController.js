@@ -1890,6 +1890,138 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         }
       }
 
+      // ------------------------------------------------------------------
+      // STEP B: ADD AN EXTRA PAGE FOR THE AUDIT RECORD
+      // ------------------------------------------------------------------
+      const auditPage = pdfDoc.addPage([612, 792]); // e.g., Letter size
+      const { width: auditW, height: auditH } = auditPage.getSize();
+
+      // Title at top
+      auditPage.drawText("SignBuddy", {
+        x: 50,
+        y: auditH - 80,
+        size: 20,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      // Subtext: "Document is verified & completed with signbuddy.in"
+      // We'll also make "signbuddy.in" clickable
+      const subTitle = "Document is verified & completed with signbuddy.in";
+      auditPage.drawText(subTitle, {
+        x: 50,
+        y: auditH - 110,
+        size: 12,
+        font,
+        color: rgb(0, 0, 1), // Blue color to hint it's a link
+      });
+
+      // Make signbuddy.in clickable
+      // We'll figure out where the "signbuddy.in" substring is in that line.
+      // For simplicity, assume it's near the end. Let's measure the text width.
+      const fullTextWidth = font.widthOfTextAtSize(subTitle, 12);
+      const linkText = "signbuddy.in";
+      const linkTextWidth = font.widthOfTextAtSize(linkText, 12);
+
+      // We'll define a bounding box for the link
+      const linkX = 50 + (fullTextWidth - linkTextWidth); // near the end
+      const linkY = auditH - 110;
+      const linkHeight = 12; // same as text size
+
+      // Create a link annotation
+      // PDF coords: [left, bottom, right, top]
+      const linkAnnotation = auditPage.doc.context.obj({
+        Type: "Annot",
+        Subtype: "Link",
+        Rect: [
+          linkX,
+          linkY, // y bottom
+          linkX + linkTextWidth,
+          linkY + linkHeight, // y top
+        ],
+        Border: [0, 0, 0],
+        A: {
+          Type: "Action",
+          S: "URI",
+          URI: "https://signbuddy.in", // target link
+        },
+        Flags: AnnotationFlags.Print,
+      });
+      auditPage.node.addAnnot(linkAnnotation);
+
+      // Document Title, ID, or Key
+      auditPage.drawText(`Title: ${document.documentName || "Untitled"}`, {
+        x: 50,
+        y: auditH - 140,
+        size: 12,
+        font,
+        color: rgb(0, 0, 0),
+      });
+      auditPage.drawText(
+        `Document ID: ${document.uniqueId || document.documentKey}`,
+        {
+          x: 50,
+          y: auditH - 160,
+          size: 12,
+          font,
+          color: rgb(0, 0, 0),
+        }
+      );
+
+      // Example of times (if you stored them):
+      const creationTime = document.documentCreationTime
+        ? new Date(document.documentCreationTime).toLocaleString()
+        : "N/A";
+      auditPage.drawText(`Created At: ${creationTime}`, {
+        x: 50,
+        y: auditH - 180,
+        size: 12,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      // Next, a heading for the "Complete Audit Record"
+      auditPage.drawText("Complete Audit Record", {
+        x: 50,
+        y: auditH - 220,
+        size: 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      // Loop through recipients to display IPs and timestamps
+      let yOffset = auditH - 250;
+      for (const rec of document.recipients) {
+        // You can combine data however you like
+        // e.g., "Name: rec.userName / Email: rec.email"
+        const recLine1 = `Name: ${rec.userName || "N/A"} | Email: ${rec.email}`;
+        auditPage.drawText(recLine1, {
+          x: 50,
+          y: yOffset,
+          size: 12,
+          font,
+          color: rgb(0, 0, 0),
+        });
+        yOffset -= 20;
+
+        // Show IP and SignedTime
+        const signedTime = rec.recipientSignedTime
+          ? new Date(rec.recipientSignedTime).toLocaleString()
+          : "N/A";
+        const ipLine = `Viewed IP: ${
+          rec.recipientViewedIp || "N/A"
+        }  |  Signed IP: ${
+          rec.recipientSignedIp || "N/A"
+        }  |  Signed Time: ${signedTime}`;
+        auditPage.drawText(ipLine, {
+          x: 50,
+          y: yOffset,
+          size: 12,
+          font,
+          color: rgb(0, 0, 0),
+        });
+        yOffset -= 30;
+      }
       // Save the PDF and upload
       const pdfBytes = await pdfDoc.save();
       const pdfKey = `signedDocuments/${documentKey}.pdf`;

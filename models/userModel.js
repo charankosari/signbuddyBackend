@@ -32,7 +32,7 @@ const IncomingAgreementSchema = new mongoose.Schema({
   allRecipients: [
     {
       email: { type: String },
-      username: { type: String },
+      userName: { type: String },
       status: {
         type: String,
         enum: ["pending", "signed", "viewed", "rejected"],
