@@ -2083,13 +2083,7 @@ exports.getCounter = async (req, res, next) => {
       const differenceInMs = count.date - now;
       let diffDays = Math.ceil(differenceInMs / (1000 * 60 * 60 * 24));
 
-      if (diffDays > 0) {
-        daysText = `Documents Created In ${diffDays} Days`;
-      } else if (diffDays === 0) {
-        daysText = "Documents Created Today";
-      } else {
-        daysText = `Documents Created ${Math.abs(diffDays)} Days Ago`;
-      }
+      daysText = `Documents Created in ${Math.abs(diffDays)} Days`;
     }
 
     res.status(200).json({
