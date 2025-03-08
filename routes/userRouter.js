@@ -31,7 +31,6 @@ const {
   getPlans,
   getIp,
   getCounter,
-  ConvertToPdfEndpoint,
 } = require("../controllers/userController");
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -74,5 +73,4 @@ router.route("/getplans").get(getPlans);
 // router.route("/updateplans").post(createOrUpdatePlans);
 router.route("/getip").get(getIp);
 router.route("/getcount").get(getCounter);
-router.route("/convertit").post(ConvertToPdfEndpoint);
 module.exports = router;
