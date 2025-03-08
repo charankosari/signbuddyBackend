@@ -1694,7 +1694,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         documentCreationIp: user.documentsSent[docIndex].documentCreationIp,
         documentCreationTime: user.documentsSent[docIndex].documentCreationTime,
         documentSentTime: newDate,
-        documentSendIp: ipAddress,
+        documentSentIp: ipAddress,
         recipients: recipients,
         placeholders: placeholders,
         CC: ccEmails,
