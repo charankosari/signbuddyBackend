@@ -2076,19 +2076,28 @@ exports.getIp = (req, res, next) => {
 exports.getCounter = async (req, res, next) => {
   try {
     const count = await Counter.findOne({});
-    let diffDays = 0;
+    let daysText = "Documents Created 0 Days Ago"; // default
 
     if (count && count.date) {
       const now = new Date();
-      // Calculate the difference: stored date minus current date.
-      diffDays = Math.ceil((count.date - now) / (1000 * 60 * 60 * 24));
+      const differenceInMs = count.date - now;
+      let diffDays = Math.ceil(differenceInMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 0) {
+        daysText = `Documents Created In ${diffDays} Days`;
+      } else if (diffDays === 0) {
+        daysText = "Documents Created Today";
+      } else {
+        daysText = `Documents Created ${Math.abs(diffDays)} Days Ago`;
+      }
     }
+
     res.status(200).json({
       success: true,
       count: {
         users: count ? count.userCount : 0,
         documents: count ? count.documentsSentCount : 0,
-        days: `Documents Created In ${diffDays} Days`,
+        days: daysText,
       },
     });
   } catch (err) {
