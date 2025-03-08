@@ -56,9 +56,7 @@ router.route("/sendagreement").post(isAuthorized, sendAgreements);
 
 router.route("/sendreminder").post(isAuthorized, sendReminder);
 router.route("/deleteagreement").delete(isAuthorized, deleteDocument);
-router
-  .route("/agreedocument")
-  .post(isAuthorized, upload.single("file"), agreeDocument);
+router.route("/agreedocument").post(isAuthorized, upload.any(), agreeDocument);
 router.route("/vieweddocument").post(isAuthorized, viewedDocument);
 router.route("/drafts/update").post(isAuthorized, updateDraft);
 router.route("/generatecontent").post(isAuthorized, createAgreement);

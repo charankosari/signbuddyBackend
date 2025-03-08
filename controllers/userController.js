@@ -561,30 +561,39 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         (p) => p.email === email && p.type === type
       );
       if (!docPlaceholder) continue;
+      const matchingFile = req.files.find((f) => f.originalname === value);
 
-      if (type === "signature" && email === presentUser.email) {
-        // Handle signature upload
-        if (!req.file) continue;
+      // If we found a file, treat it as an image to upload
+      if (matchingFile) {
+        // For signature, text, or date placeholders that are images
         const tempDir = path.join(__dirname, "../temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-        const signatureId = uuidv4();
-        const imageFile = `${signatureId}.png`;
+        const uniqueId = uuidv4();
+        const imageFile = `${uniqueId}.png`;
         const tempFilePath = path.join(tempDir, imageFile);
-        fs.writeFileSync(tempFilePath, req.file.buffer);
+
+        // Save locally, then read into buffer
+        fs.writeFileSync(tempFilePath, matchingFile.buffer);
         const imageBuffer = fs.readFileSync(tempFilePath);
+
+        // Upload to S3
         const imagesFolder = `signatures/${documentKey}`;
         const imageKey = `${imagesFolder}/${imageFile}`;
         const imageUpload = await putObject(imageBuffer, imageKey, "image/png");
         if (imageUpload.status !== 200) {
+          fs.unlinkSync(tempFilePath);
           return res
             .status(500)
-            .json({ error: "Failed to upload signature image" });
+            .json({ error: "Failed to upload image placeholder" });
         }
         docPlaceholder.value = imageUpload.url;
         fs.unlinkSync(tempFilePath);
-      } else if ((type === "text" || type === "date") && value) {
-        // Handle text/date placeholder
-        docPlaceholder.value = value;
+      } else {
+        // If there's no matching file, but we have text or date placeholders,
+        // store the literal value
+        if ((type === "text" || type === "date") && value) {
+          docPlaceholder.value = value;
+        }
       }
     }
 
@@ -610,22 +619,31 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         }
       }
       // Update placeholders in the global Agreement (if applicable)
+      // Update placeholders in the global Agreement (if applicable)
       for (const phReq of placeholdersFromReq) {
         const { email, type, value } = phReq;
+
+        // 1) Find the matching placeholder in the global Agreement
         const globalPlaceholder = agreement.placeholders.find(
           (p) => p.email === email && p.type === type
         );
         if (!globalPlaceholder) continue;
+
+        // 2) Find the updated local placeholder from the senderUser document
+        const localPh = document.placeholders.find(
+          (p) => p.email === email && p.type === type
+        );
+
+        // 3) If it's a signature placeholder for the present user, replicate the updated image URL
         if (type === "signature" && email === presentUser.email) {
-          // Replicate the value set in the sender's document
-          const localPh = document.placeholders.find(
-            (p) => p.email === email && p.type === type
-          );
           globalPlaceholder.value = localPh ? localPh.value : "";
-        } else if ((type === "text" || type === "date") && value) {
-          globalPlaceholder.value = value;
+        }
+        // 4) If it's text/date, copy the local placeholder's new value
+        else if ((type === "text" || type === "date") && localPh) {
+          globalPlaceholder.value = localPh.value;
         }
       }
+
       await agreement.save();
     }
 
@@ -722,13 +740,23 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
                 );
               }
             } else if (ph.type === "text" || ph.type === "date") {
-              page.drawText(ph.value, {
-                x: posX,
-                y: posY,
-                size: placeholderTextSize,
-                font: font,
-                color: rgb(0, 0, 0),
-              });
+              try {
+                const textResponse = await axios.get(ph.value, {
+                  responseType: "arraybuffer",
+                });
+                const embeddedText = await pdfDoc.embedPng(textResponse.data);
+                page.drawImage(embeddedText, {
+                  x: posX,
+                  y: posY,
+                  width,
+                  height,
+                });
+              } catch (err) {
+                console.error(
+                  `Error overlaying signature for ${ph.email}:`,
+                  err
+                );
+              }
             }
           }
         }
