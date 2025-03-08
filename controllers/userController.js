@@ -17,6 +17,7 @@ const {
   signUpOtpMail,
   emailForPreuser,
   emailBody,
+  ViewedDocument,
 } = require("../utils/Templates");
 const {
   PDFDocument,
@@ -1011,8 +1012,15 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
     }
 
     // Optionally, notify the sender via email that the document was viewed
-    const subject = "Document Viewed";
-    const body = `<h1>${user.userName} viewed your document</h1>`;
+    const subject = `${document.documentName} has been viewed by ${user.userName}`;
+
+    const body = ViewedDocument(
+      sender.avatar,
+      sender.userName,
+      senderEmail,
+      user.userName,
+      document.documentName
+    );
     sendEmail(senderEmail, subject, body);
 
     return res
