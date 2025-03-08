@@ -30,7 +30,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   }
 
   // Some sizes
-  const SmallTextSize = 42;
+  const SmallTextSize = 52;
   const BigTextSize = 52;
   const footerIconWidth = 32;
   const footerIconHeight = 32;
@@ -51,7 +51,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   function drawLineOfText(
     txt,
     font = helvetica,
-    size = 12,
+    size = 52,
     color = rgb(0, 0, 0)
   ) {
     page.drawText(txt, { x, y, font, size, color });
@@ -70,7 +70,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
 
   // === Make "Document is verified & completed with signbuddy.in" a LINK ===
   const linkText = "Document is verified & completed with signbuddy.in";
-  const linkFontSize = 12;
+  const linkFontSize = 52;
 
   // 1) Draw the text
   page.drawText(linkText, {
@@ -86,7 +86,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
 
   // 3) Create a Link annotation
   //    The annotation rect is [left, bottom, right, top] in PDF coordinates.
-  //    Because we just drew the text at (x, y) with size=12, the top is y+12
+  //    Because we just drew the text at (x, y) with size=52, the top is y+52
   //    and the right is x+linkWidth.
   const linkAnnotation = pdfDoc.context.obj({
     Type: "Annot",
@@ -134,7 +134,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   drawLineOfText(
     `Created by ${data.createdRow.senderName} (${data.createdRow.senderEmail}) at ${data.createdRow.time}`,
     helvetica,
-    12
+    52
   );
   drawLineOfText(
     `IP - ${data.createdRow.ip}`,
