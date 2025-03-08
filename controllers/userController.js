@@ -914,20 +914,81 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           .json({ error: "Failed to upload final signed PDF" });
       }
       console.log("Final signed PDF URL:", pdfUpload.url);
+      const finalDocumentUrl = pdfUpload.url;
       document.signedDocument = pdfUpload.url;
       const agreement = await Agreement.findOne({ documentKey });
       agreement.signedDocument = pdfUpload.url;
       agreement.status = "signed";
       agreement.save();
+
+      try {
+        const senderMailBody = CompletedSenderDocumentTemplate({
+          documentName: docName,
+          senderName: senderUser.userName || senderUser.email,
+          recipientName: document.recipients
+            .map((r) => r.userName || r.email)
+            .join(", "),
+          documentPreview: document.ImageUrls[0],
+          documentUrl: finalDocumentUrl,
+        });
+
+        await sendEmail(
+          senderUser.email,
+          `${docName} has been completed`,
+          senderMailBody
+        );
+        console.log(
+          `CompletedSenderDocument email sent to: ${senderUser.email}`
+        );
+      } catch (err) {
+        console.error("Error sending CompletedSenderDocument email:", err);
+      }
+
+      // (B) Send the "CompletedRecievedDocument" email to each recipient
+      // NEW CODE: Loop over recipients
+      for (const rec of document.recipients) {
+        try {
+          // Only send if rec.email is valid
+          if (!rec.email) continue;
+
+          const recipientMailBody = CompletedRecievedDocumentTemplate({
+            documentName: docName,
+            recipientName: rec.userName || rec.email,
+            documentPreview: document.ImageUrls[0],
+            documentUrl: finalDocumentUrl,
+          });
+
+          await sendEmail(
+            rec.email,
+            `You have a completed document: "${docName}"`,
+            recipientMailBody
+          );
+          console.log(`CompletedRecievedDocument email sent to: ${rec.email}`);
+        } catch (err) {
+          console.error(
+            `Error sending CompletedRecievedDocument to ${rec.email}:`,
+            err
+          );
+        }
+      }
+
       if (document.CC && document.CC.length > 0) {
         try {
-          const documentUrl = pdfUpload.url;
-          const ccBody = `
-            <p>Please click the link below to download the final signed document:</p>
-            <p><a href="${documentUrl}" target="_blank">Download Document</a></p>
-          `;
+          const subject = `Carbon Copy of the ${docName}`;
+          const carbonData = {
+            documentName: document.documentName || "Untitled",
+            senderImage: senderUser.avatar || "", // or wherever you store the sender's image
+            senderName: senderUser.userName || senderUser.email,
+            senderEmail: senderUser.email,
+            documentPreview: document.ImageUrls[0] || "", // if you have a doc preview
+            documentUrl: pdfUpload.url, // the final signed doc
+          };
+
+          // Build the HTML body
+          const ccBody = CarbonCopy(carbonData);
+
           for (const ccEmail of document.CC) {
-            await sendEmail(ccEmail, "Final Signed Document CC", ccBody);
+            await sendEmail(ccEmail, subject, ccBody);
           }
         } catch (err) {
           console.error("Error sending final document to CC emails:", err);
@@ -2076,7 +2137,6 @@ exports.getIp = (req, res, next) => {
 exports.getCounter = async (req, res, next) => {
   try {
     const count = await Counter.findOne({});
-    let daysText = "Documents Created 0 Days Ago"; // default
 
     if (count && count.date) {
       const now = new Date();

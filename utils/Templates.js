@@ -1968,3 +1968,783 @@ exports.sendDocument = (
 </html>
 `;
 };
+
+exports.CompletedSenderDocument = (
+  documentName,
+  senderName,
+  recipientName,
+  documentPreview,
+  documentUrl
+) => {
+  return `
+  <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${documentName} has been completed</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #09090b;
+      font-family: Arial, sans-serif;
+    "
+  >
+    <table
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      role="presentation"
+      style="background-color: #111111; margin: 0; padding: 0"
+    >
+      <tr>
+        <td>
+          <!-- Header -->
+          <div style="max-width: 600px; margin: 0 auto">
+            <p
+              style="
+                color: #dadadb;
+                margin-bottom: 4px;
+                font-size: 24px;
+                text-align: left;
+                font-weight: 600;
+              "
+            >
+              SignBuddy
+            </p>
+            <p
+              style="
+                color: #dadadb;
+                margin: 0px;
+                font-size: 14px;
+                color: #7a7a81;
+                text-align: left;
+              "
+            >
+              Signing made easy, Lorem ipsum dolor sit amet.
+            </p>
+          </div>
+
+          <!-- Main Content Card -->
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              max-width: 600px;
+              margin: 28px auto 0;
+              border-radius: 8px;
+              padding: 0px 8px;
+              background-color: #111111;
+              border: 1px solid #404040;
+            "
+          >
+            <tr>
+              <td style="padding: 20px">
+                <!-- Message Content -->
+                <div style="margin-top: 0px">
+                  <p style="margin: 0 0 12px; font-size: 14px; color: #7a7a81">
+                    Hey there <strong>${senderName},</strong>
+                  </p>
+                  <p
+                    style="
+                      margin: 0 0 12px;
+                      font-size: 14px;
+                      line-height: 1.6;
+                      color: #dadadb;
+                    "
+                  >
+                  <strong>${recipientName},</strong> has completed the {Document_name}.
+                    The completed document could be downloaded from below.
+                    Please check your account dashboard for more clear updates.
+                  </p>
+                  <p style="margin: 0 0 4px; font-size: 14px; color: #dadadb">
+                    Thank you.
+                  </p>
+                  <p style="margin: 0; font-size: 14px; color: #dadadb">
+                    -SignBuddy
+                  </p>
+                </div>
+
+                <!-- Document Preview -->
+                <div style="margin-top: 20px; text-align: center">
+                  <img
+                    src=${documentPreview}
+                    alt="Document Preview"
+                    style="
+                      width: 100%;
+                      max-width: 180px;
+                      max-height: 250px;
+                      margin-bottom: 16px;
+                    "
+                  />
+                  <table cellpadding="0" cellspacing="0" style="margin: 0 auto">
+                    <tr>
+                      <td style="background-color: #dadadb; border-radius: 4px">
+                        <a
+                          href=${documentUrl}
+                          style="
+                            display: inline-block;
+                            padding: 10px 20px;
+                            color: #09090b;
+                            text-decoration: none;
+                            font-size: 14px;
+                            font-weight: 600;
+                          "
+                          >Download Document</a
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Footer -->
+          <div style="max-width: 600px; margin: 32px auto 0">
+            <!-- Footer Links -->
+            <table
+              width="100%"
+              cellpadding="0"
+              cellspacing="0"
+              role="presentation"
+              style="margin-top: 12px; border-top: 1px solid #333"
+            >
+              <tr>
+                <td style="padding-top: 12px">
+                  <table
+                    width="100%"
+                    cellpadding="0"
+                    cellspacing="0"
+                    role="presentation"
+                  >
+                    <tr>
+                      <td style="color: #666666; font-size: 10px">
+                        Copyright © 2025 SignBuddy. All Rights Reserved.
+                      </td>
+                      <td align="right">
+                        <a
+                          href="#"
+                          style="
+                            color: #666666;
+                            text-decoration: underline;
+                            font-size: 10px;
+                            padding: 0 10px;
+                          "
+                          >Privacy Policy</a
+                        >
+                        <a
+                          href="#"
+                          style="
+                            color: #666666;
+                            text-decoration: underline;
+                            font-size: 10px;
+                            padding: 0 10px;
+                          "
+                          >Terms & Conditions</a
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Social Media Icons -->
+              <tr>
+                <td style="padding-top: 8px">
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <a
+                        href="YOUR_LINKEDIN_URL"
+                        style="text-decoration: none; margin-right: 16px"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/linkedin.png"
+                          alt="LinkedIn"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      <a
+                        href="YOUR_INSTAGRAM_URL"
+                        style="text-decoration: none; margin-right: 16px"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/instagram.png"
+                          alt="Instagram"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      <a
+                        href="YOUR_TWITTER_URL"
+                        style="text-decoration: none"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/twitter.png"
+                          alt="Twitter"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-top: 12px">
+                  <p
+                    style="
+                      color: #666666;
+                      font-size: 12px;
+                      margin: 0 0 24px;
+                      text-align: center;
+                    "
+                  >
+                    <img
+                      src="star.png"
+                      style="width: 14px; height: 14px; margin-right: 4px"
+                    />
+                    Powered by <strong>Syncore Labs</strong>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+`;
+};
+exports.CompletedRecievedDocument = (
+  documentName,
+  recipientName,
+  documentPreview,
+  documentUrl
+) => {
+  return `
+  
+  <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${documentName} has been completed</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #09090b;
+      font-family: Arial, sans-serif;
+    "
+  >
+    <table
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      role="presentation"
+      style="background-color: #111111; margin: 0; padding: 0"
+    >
+      <tr>
+        <td>
+          <!-- Header -->
+          <div style="max-width: 600px; margin: 0 auto">
+            <p
+              style="
+                color: #dadadb;
+                margin-bottom: 4px;
+                font-size: 24px;
+                text-align: left;
+                font-weight: 600;
+              "
+            >
+              SignBuddy
+            </p>
+            <p
+              style="
+                color: #dadadb;
+                margin: 0px;
+                font-size: 14px;
+                color: #7a7a81;
+                text-align: left;
+              "
+            >
+              Signing made easy, Lorem ipsum dolor sit amet.
+            </p>
+          </div>
+
+          <!-- Main Content Card -->
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              max-width: 600px;
+              margin: 28px auto 0;
+              border-radius: 8px;
+              padding: 0px 8px;
+              background-color: #111111;
+              border: 1px solid #404040;
+            "
+          >
+            <tr>
+              <td style="padding: 20px">
+                <!-- Message Content -->
+                <div style="margin-top: 0px">
+                  <p style="margin: 0 0 12px; font-size: 14px; color: #7a7a81">
+                    Hey there <strong>${recipientName},</strong>
+                  </p>
+                  <p
+                    style="
+                      margin: 0 0 12px;
+                      font-size: 14px;
+                      line-height: 1.6;
+                      color: #dadadb;
+                    "
+                  >
+                    Thank you for signing the ${documentName}. A copy of the signed document is available for download below.
+                    You can also access this document anytime from your account dashboard.
+                  </p>
+                  <p style="margin: 0 0 4px; font-size: 14px; color: #dadadb">
+                    Thank you.
+                  </p>
+                  <p style="margin: 0; font-size: 14px; color: #dadadb">
+                    -SignBuddy
+                  </p>
+                </div>
+
+                <!-- Document Preview -->
+                <div style="margin-top: 20px; text-align: center">
+                  <img
+                    src=${documentPreview}
+                    alt="Document Preview"
+                    style="
+                      width: 100%;
+                      max-width: 180px;
+                      max-height: 250px;
+                      margin-bottom: 16px;
+                    "
+                  />
+                  <table cellpadding="0" cellspacing="0" style="margin: 0 auto">
+                    <tr>
+                      <td style="background-color: #dadadb; border-radius: 4px">
+                        <a
+                          href=${documentUrl}
+                          style="
+                            display: inline-block;
+                            padding: 10px 20px;
+                            color: #09090b;
+                            text-decoration: none;
+                            font-size: 14px;
+                            font-weight: 600;
+                          "
+                          >Download Document</a
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Footer -->
+          <div style="max-width: 600px; margin: 32px auto 0">
+            <!-- Footer Links -->
+            <table
+              width="100%"
+              cellpadding="0"
+              cellspacing="0"
+              role="presentation"
+              style="margin-top: 12px; border-top: 1px solid #333"
+            >
+              <tr>
+                <td style="padding-top: 12px">
+                  <table
+                    width="100%"
+                    cellpadding="0"
+                    cellspacing="0"
+                    role="presentation"
+                  >
+                    <tr>
+                      <td style="color: #666666; font-size: 10px">
+                        Copyright © 2025 SignBuddy. All Rights Reserved.
+                      </td>
+                      <td align="right">
+                        <a
+                          href="#"
+                          style="
+                            color: #666666;
+                            text-decoration: underline;
+                            font-size: 10px;
+                            padding: 0 10px;
+                          "
+                          >Privacy Policy</a
+                        >
+                        <a
+                          href="#"
+                          style="
+                            color: #666666;
+                            text-decoration: underline;
+                            font-size: 10px;
+                            padding: 0 10px;
+                          "
+                          >Terms & Conditions</a
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Social Media Icons -->
+              <tr>
+                <td style="padding-top: 8px">
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <a
+                        href="YOUR_LINKEDIN_URL"
+                        style="text-decoration: none; margin-right: 16px"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/linkedin.png"
+                          alt="LinkedIn"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      <a
+                        href="YOUR_INSTAGRAM_URL"
+                        style="text-decoration: none; margin-right: 16px"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/instagram.png"
+                          alt="Instagram"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      <a
+                        href="YOUR_TWITTER_URL"
+                        style="text-decoration: none"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/twitter.png"
+                          alt="Twitter"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-top: 12px">
+                  <p
+                    style="
+                      color: #666666;
+                      font-size: 12px;
+                      margin: 0 0 24px;
+                      text-align: center;
+                    "
+                  >
+                    <img
+                      src="star.png"
+                      style="width: 14px; height: 14px; margin-right: 4px"
+                    />
+                    Powered by <strong>Syncore Labs</strong>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+`;
+};
+
+exports.CarbonCopy = (
+  documentName,
+  senderImage,
+  senderName,
+  senderEmail,
+  documentPreview,
+  documentUrl
+) => {
+  return `
+  <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Carbon Copy of the ${documentName}</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #09090b;
+      font-family: Arial, sans-serif;
+    "
+  >
+    <table
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      role="presentation"
+      style="background-color: #111111; margin: 0; padding: 0"
+    >
+    <tr>
+      <td>
+        <div style="max-width: 600px; margin: 0 auto;">
+          <p style="color: #dadadb; margin-bottom:4px; font-size:24px; text-align:left; font-weight:600;">SignBuddy</p>
+          <p style="color: #dadadb; margin:0px; font-size:14px; color:#7a7a81;text-align:left;">The Document Signing made easier than ever.</p>
+        </div>
+      </td>
+    </tr>
+      <tr>
+        <td align="center" style="padding: 0px">
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              max-width: 600px;
+              margin: 28px auto 0;
+              border-radius: 8px;
+              padding: 0px 20px;
+              background-color: #111111;
+              border:1px solid #404040;
+            "
+          >
+            <!-- Header with Profile -->
+            <tr>
+              <td style="padding: 20px 0">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="vertical-align: middle">
+                      <table cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="padding-right: 15px">
+                            <img
+                              src=${senderImage}
+                              alt="Profile"
+                              style="
+                                width: 48px;
+                                height: 48px;
+                                border-radius: 50%;
+                              "
+                            />
+                          </td>
+                          <td>
+                            <p
+                               style="
+                                margin: 0 0 5px;
+                                font-size: 16px;
+                                color: #dadadb;
+                                font-weight: 500;
+                              "
+                            >
+                              ${senderName}
+                            </p>
+                            <p
+                              style="margin: 0; font-size: 13px; color: #7a7a81"
+                            >
+                            ${senderEmail}
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- Message Content -->
+            <tr>
+              <td style="padding: 0 0 30px">
+                <p style="margin: 0 0 12px; font-size: 14px; color: #7a7a81">
+                  Hey there,
+                </p>
+                <p
+                  style="
+                    margin: 0 0 12px;
+                    font-size: 14px;
+                    color: #dadadb;
+                    line-height: 1.6;
+                  "
+                >
+                  Here is the Completed Document Carbon Copy of ${documentName}
+                </p>
+                <p style="margin: 0 0 4px; font-size: 14px; color: #dadadb">
+                  Thank you.
+                </p>
+                <p style="margin: 0; font-size: 14px; color: #dadadb">
+                  -SignBuddy.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Document Preview Images -->
+            <tr>
+              <td>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 0 5px; text-align: center">
+                      <img
+                        src=${documentPreview}
+                        alt="Document Preview 1"
+                        style="width: 100%; max-width: 180px; max-height: 250px"
+                      />
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Complete Document Button -->
+            <tr>
+              <td align="center" style="padding: 20px 0 30px">
+                <table cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="background-color: #dadadb; border-radius: 4px">
+                      <a
+                        href=${documentUrl}
+                        style="
+                          display: inline-block;
+                          padding: 10px 20px;
+                          color: #000000;
+                          text-decoration: none;
+                          font-size: 14px;
+                          font-weight: 500;
+                        "
+                        >Download Document</a
+                      >
+                    </td>
+                  </tr>
+                </table>
+                <!-- Description -->
+        </td>
+      </tr>
+    </table>
+    <div style="max-width: 600px;">
+                 <!-- Footer -->
+                 <table
+                 width="100%"
+                 cellpadding="0"
+                 cellspacing="0"
+                 role="presentation"
+                 style="margin-top: 20px; border-top: 1px solid #333"
+               >
+                 <tr>
+                   <td style="padding-top: 12px">
+                     <table
+                       width="100%"
+                       cellpadding="0"
+                       cellspacing="0"
+                       role="presentation"
+                     >
+                       <tr>
+                         <td style="color: #666666; font-size: 10px">
+                           Copyright © 2025 SignBuddy. All Rights Reserved.
+                         </td>
+                         <td align="right">
+                           <a
+                             href="#"
+                             style="
+                               color: #666666;
+                               text-decoration: underline;
+                               font-size: 10px;
+                               padding: 0 10px;
+                             "
+                             >Privacy Policy</a
+                           >
+                           <a
+                             href="#"
+                             style="
+                               color: #666666;
+                               text-decoration: underline;
+                               font-size: 10px;
+                               padding: 0 10px;
+                             "
+                             >Terms & Conditions</a
+                           >
+                         </td>
+                       </tr>
+                     </table>
+                     <!-- Social Media Icons -->
+              <tr>
+                <td style="padding-top: 8px">
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <a
+                        href="YOUR_LINKEDIN_URL"
+                        style="text-decoration: none; margin-right: 16px"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/linkedin.png"
+                          alt="LinkedIn"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      <a
+                        href="YOUR_INSTAGRAM_URL"
+                        style="text-decoration: none; margin-right: 16px"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/instagram.png"
+                          alt="Instagram"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      <a
+                        href="YOUR_TWITTER_URL"
+                        style="text-decoration: none"
+                      >
+                        <img
+                          src="https://signbuddy.s3.ap-south-1.amazonaws.com/utilImages/twitter.png"
+                          alt="Twitter"
+                          style="width: 28px; height: 28px"
+                        />
+                      </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-top: 12px">
+                  <p
+                    style="
+                      color: #666666;
+                      font-size: 12px;
+                      margin: 0 0 24px;
+                      text-align: center;
+                    "
+                  >
+                    <img
+                      src="star.png"
+                      style="width: 14px; height: 14px; margin-right: 4px"
+                    />
+                    Powered by <strong>Syncore Labs</strong>
+                  </p>
+                </td>
+              </tr>
+              </td>
+            </tr>
+          </table>
+    </div>
+  </body>
+</html>
+`;
+};
