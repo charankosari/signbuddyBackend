@@ -18,6 +18,7 @@ const {
   emailForPreuser,
   emailBody,
   ViewedDocument,
+  sendDocument,
 } = require("../utils/Templates");
 const {
   PDFDocument,
@@ -1683,14 +1684,14 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       sendEmail(
         email,
         subjectB,
-        emailBody(
-          user.userName,
+        sendDocument(
+          d.documentName,
           user.avatar,
+          user.userName,
           user.email,
+          emailB,
           d.ImageUrls[0],
-          redirectUrl,
-          names[index],
-          emailB
+          redirectUrl
         )
       );
     });
