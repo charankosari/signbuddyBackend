@@ -19,6 +19,7 @@ const {
   emailBody,
   ViewedDocument,
   sendDocument,
+  CarbonCopy,
 } = require("../utils/Templates");
 const {
   PDFDocument,
@@ -1359,43 +1360,64 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
       }
     }
 
-    const { emails, names, previewImageUrl, redirectUrl } = req.body;
+    const {
+      emails,
+      names,
+      previewImageUrl,
+      redirectUrl,
+      senderEmail,
+      fileKey,
+    } = req.body;
+    const sender = await User.findOne({ email: senderEmail });
+    if (!sender) {
+      return res.status(404).json({ message: "Sender user not found" });
+    }
 
+    // 6) Locate the specific document in sender.documentsSent by documentKey
+    const foundDoc = sender.documentsSent.find(
+      (d) => d.documentKey === fileKey
+    );
+    if (!foundDoc) {
+      return res
+        .status(404)
+        .json({ message: "Document not found in sender's account" });
+    }
+
+    // 7) Validate emails/names arrays
     if (!Array.isArray(emails) || !Array.isArray(names)) {
       return res
         .status(400)
         .json({ message: "Emails and names must be provided as arrays" });
     }
     if (emails.length !== names.length) {
-      return res.status(400).json({
-        message: "Emails and names arrays must have the same length",
-      });
+      return res
+        .status(400)
+        .json({ message: "Emails and names arrays must have the same length" });
     }
 
-    // Retrieve custom email details from the user model.
-    // Assumes user.emailBody is an object with subject and emailBody properties.
-    const customEmail = user.emailBody;
+    // 8) Retrieve custom email details from the user model
+    //    If you want to use doc.CustomEmail instead, you can do so
+    const customEmail = sender.emailBody;
     if (!customEmail || !customEmail.subject || !customEmail.emailBody) {
       return res
         .status(400)
         .json({ message: "Custom email details not set in user profile" });
     }
 
-    // Loop through recipients and send the reminder using the custom email details.
+    // 9) For each recipient, send a reminder
     for (let i = 0; i < emails.length; i++) {
       const email = emails[i];
-      const recipientName = names[i] || "User";
       await sendEmail(
         email,
         customEmail.subject,
-        emailBody(
-          user.userName,
-          user.avatar,
-          user.email,
-          previewImageUrl,
-          redirectUrl,
-          recipientName,
-          customEmail.emailBody
+        sendDocument(
+          foundDoc.documentName,
+          sender.avatar,
+          sender.userName,
+          sender.email,
+          foundDoc.CustomEmail.emailBody,
+          foundDoc.ImageUrls[0],
+          redirectUrl
         )
       );
     }
