@@ -13,7 +13,6 @@ const pdf = require("html-pdf");
 const { createAuditPdfBuffer } = require("../utils/ConvertToPdf");
 const { Poppler } = require("node-poppler");
 const {
-  finalHtml,
   VerifyEmailTemplate,
   signUpOtpMail,
   emailForPreuser,
