@@ -1829,12 +1829,6 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       };
     }
 
-    // Deduct credits and update credits history.
-    user.creditsHistory.push({
-      thingUsed: "documentSent",
-      creditsUsed: "10",
-      timestamp: date,
-    });
     const agreementData = {
       documentKey: fileKey,
       senderEmail: user.email,
