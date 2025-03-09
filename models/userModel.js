@@ -96,6 +96,7 @@ const userSchema = new mongoose.Schema({
         documentCreationTime: { type: Date },
         documentSentTime: { type: Date },
         documentName: { type: String },
+        pdfDoc: { type: String },
         ImageUrls: { type: [String], default: [] },
         signedDocument: { type: String, default: null },
         CC: { type: [String], default: [] },

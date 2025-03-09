@@ -1559,9 +1559,19 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
     // 1. Upload the DOCX file with a unique name.
     const docxUpload = await UploadDocx(file, `${uniqueId}-${originalName}`);
     // 2. Use the DOCX URL in the response.
-    docUrl = docxUpload;
     // 3. Process the DOCX to get a PDF buffer (for image conversion only).
     pdfBuffer = await processFile(docxUpload, uniqueId);
+    const pdfUpload = await putObject(
+      pdfBuffer,
+      `agreements/${uniqueId}.pdf`,
+      "application/pdf"
+    );
+
+    if (pdfUpload.status !== 200) {
+      throw new Error("Failed to upload converted PDF");
+    }
+
+    docUrl = pdfUpload.url; // Store the uploaded PDF URL
   } else if (file.mimetype === "application/pdf") {
     // PDF branch:
     // Get the PDF buffer directly.
@@ -1639,6 +1649,7 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       documentCreationIp: ipAddress,
       documentCreationTime: Date.now(),
       uniqueId: uniqueId,
+      pdfDoc: docUrl,
     };
 
     // Also create a new draft object to push into user.drafts.
@@ -1701,6 +1712,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       }
     } else {
       if (
+        user.subscription !== "free" &&
         user.subscription.endDate &&
         user.subscription.endDate > currentDate
       ) {
@@ -1815,6 +1827,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
         documentSentTime: newDate,
         documentSentIp: ipAddress,
         recipients: recipients,
+        pdfDoc: user.documentsSent[docIndex].pdfDoc,
         placeholders: placeholders,
         CC: ccEmails,
         CustomEmail: {
@@ -2164,8 +2177,11 @@ exports.getCounter = async (req, res, next) => {
       const now = new Date();
       const differenceInMs = count.date - now;
       let diffDays = Math.ceil(differenceInMs / (1000 * 60 * 60 * 24));
-
-      daysText = `Documents Created in ${Math.abs(diffDays)} Days`;
+      if (Math.abs(diffDays) === 1) {
+        daysText = `Documents sent in ${Math.abs(diffDays)} Day`;
+      } else {
+        daysText = `Documents sent in ${Math.abs(diffDays)} Days`;
+      }
     }
 
     res.status(200).json({
