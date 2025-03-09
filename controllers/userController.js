@@ -20,6 +20,8 @@ const {
   ViewedDocument,
   sendDocument,
   CarbonCopy,
+  CompletedSenderDocument,
+  CompletedRecievedDocument,
 } = require("../utils/Templates");
 const {
   PDFDocument,
@@ -923,7 +925,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       agreement.save();
 
       try {
-        const senderMailBody = CompletedSenderDocumentTemplate({
+        const senderMailBody = CompletedSenderDocument({
           documentName: docName,
           senderName: senderUser.userName || senderUser.email,
           recipientName: document.recipients
@@ -952,7 +954,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           // Only send if rec.email is valid
           if (!rec.email) continue;
 
-          const recipientMailBody = CompletedRecievedDocumentTemplate({
+          const recipientMailBody = CompletedRecievedDocument({
             documentName: docName,
             recipientName: rec.userName || rec.email,
             documentPreview: document.ImageUrls[0],
