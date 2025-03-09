@@ -925,15 +925,13 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       agreement.save();
 
       try {
-        const senderMailBody = CompletedSenderDocument({
-          documentName: docName,
-          senderName: senderUser.userName || senderUser.email,
-          recipientName: document.recipients
-            .map((r) => r.userName || r.email)
-            .join(", "),
-          documentPreview: document.ImageUrls[0],
-          documentUrl: finalDocumentUrl,
-        });
+        const senderMailBody = CompletedSenderDocument(
+          docName,
+          senderUser.userName || senderUser.email,
+          document.recipients.map((r) => r.userName || r.email).join(", "),
+          document.ImageUrls[0],
+          finalDocumentUrl
+        );
 
         await sendEmail(
           senderUser.email,
@@ -954,12 +952,12 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           // Only send if rec.email is valid
           if (!rec.email) continue;
 
-          const recipientMailBody = CompletedRecievedDocument({
-            documentName: docName,
-            recipientName: rec.userName || rec.email,
-            documentPreview: document.ImageUrls[0],
-            documentUrl: finalDocumentUrl,
-          });
+          const recipientMailBody = CompletedRecievedDocument(
+            docName,
+            rec.userName || rec.email,
+            document.ImageUrls[0],
+            finalDocumentUrl
+          );
 
           await sendEmail(
             rec.email,
@@ -978,17 +976,16 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       if (document.CC && document.CC.length > 0) {
         try {
           const subject = `Carbon Copy of the ${docName}`;
-          const carbonData = {
-            documentName: document.documentName || "Untitled",
-            senderImage: senderUser.avatar || "", // or wherever you store the sender's image
-            senderName: senderUser.userName || senderUser.email,
-            senderEmail: senderUser.email,
-            documentPreview: document.ImageUrls[0] || "", // if you have a doc preview
-            documentUrl: pdfUpload.url, // the final signed doc
-          };
 
           // Build the HTML body
-          const ccBody = CarbonCopy(carbonData);
+          const ccBody = CarbonCopy(
+            document.documentName || "Untitled",
+            senderUser.avatar || "",
+            senderUser.userName || senderUser.email,
+            senderUser.email,
+            document.ImageUrls[0] || "",
+            pdfUpload.url
+          );
 
           for (const ccEmail of document.CC) {
             await sendEmail(ccEmail, subject, ccBody);
