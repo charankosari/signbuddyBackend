@@ -1697,45 +1697,35 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     }
     const currentDate = new Date();
 
+    // Determine if credits should be deducted.
+    let deductCredits = false;
+
     if (user.subscription.type === "free") {
+      deductCredits = true;
+    } else if (
+      !user.subscription.endDate ||
+      user.subscription.endDate <= currentDate
+    ) {
+      // For non-free subscriptions with expired or missing endDate, deduct credits.
+      deductCredits = true;
+    }
+
+    if (deductCredits) {
       if (user.credits >= 10) {
         user.credits -= 10;
-        user.creditsHistory.push({
-          thingUsed: "documentSent",
-          creditsUsed: "10",
-          timestamp: currentDate,
-        });
       } else {
         return res
           .status(403)
           .json({ error: "You do not have enough credits to send." });
       }
-    } else {
-      if (
-        user.subscription !== "free" &&
-        user.subscription.endDate &&
-        user.subscription.endDate > currentDate
-      ) {
-        user.creditsHistory.push({
-          thingUsed: "documentSent",
-          creditsUsed: "10",
-          timestamp: currentDate,
-        });
-      } else {
-        if (user.credits >= 10) {
-          user.credits -= 10;
-          user.creditsHistory.push({
-            thingUsed: "documentSent",
-            creditsUsed: "10",
-            timestamp: currentDate,
-          });
-        } else {
-          return res
-            .status(403)
-            .json({ error: "You do not have enough credits to send." });
-        }
-      }
     }
+
+    // Log the document send (this will only be added once)
+    user.creditsHistory.push({
+      thingUsed: "documentSent",
+      creditsUsed: "10",
+      timestamp: currentDate,
+    });
 
     if (!req.body.emails || !req.body.names) {
       return res.status(400).json({ error: "Emails and names are required" });
