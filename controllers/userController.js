@@ -1762,6 +1762,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       fileKey
     )}`;
     const d = user.documentsSent.find((doc) => doc.documentKey === fileKey);
+    console.log(d, d.ImageUrls[0]);
     const ipAddress =
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
     d.documentSentIp = ipAddress;
@@ -2373,7 +2374,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       if (checkIconBytes) {
         checkIconImage = await finalPdfDoc.embedPng(checkIconBytes);
       }
-      const footerIconWidth = 8; // decreased from 32
+      const footerIconWidth = 8; // decreasFed from 32
       const footerIconHeight = 8;
       const rightFooterText = "Secured via signbuddy";
       const leftFooterText = `Document Id - ${document.uniqueId}`;

@@ -1681,7 +1681,7 @@ exports.sendDocument = (
   senderName,
   senderEmail,
   customBody,
-  documentPriview,
+  documentPreview,
   documentUrl
 ) => {
   return `
@@ -1799,7 +1799,7 @@ exports.sendDocument = (
                   <tr>
                     <td style="padding: 0 5px; text-align: center">
                       <img
-                        src=${documentPriview}
+                        src="${encodeURI(documentPreview)}" 
                         alt="Document Preview 1"
                         style="width: 100%; max-width: 180px; max-height: 290px"
                       />
@@ -1816,7 +1816,7 @@ exports.sendDocument = (
                   <tr>
                     <td style="background-color: #dadadb; border-radius: 4px">
                       <a
-                        href=${documentUrl}
+                        href="${encodeURI(documentUrl)}"
                         style="
                           display: inline-block;
                           padding: 10px 20px;
@@ -2072,7 +2072,7 @@ exports.CompletedSenderDocument = (
                 <!-- Document Preview -->
                 <div style="margin-top: 20px; text-align: center">
                   <img
-                    src=${documentPreview}
+                    src="${encodeURI(documentPreview)}" 
                     alt="Document Preview"
                     style="
                       width: 100%;
@@ -2085,7 +2085,7 @@ exports.CompletedSenderDocument = (
                     <tr>
                       <td style="background-color: #dadadb; border-radius: 4px">
                         <a
-                          href=${documentUrl}
+                          href="${encodeURI(documentUrl)}"
                           style="
                             display: inline-block;
                             padding: 10px 20px;
@@ -2322,7 +2322,7 @@ exports.CompletedRecievedDocument = (
                 <!-- Document Preview -->
                 <div style="margin-top: 20px; text-align: center">
                   <img
-                    src=${documentPreview}
+                  src="${encodeURI(documentPreview)}" 
                     alt="Document Preview"
                     style="
                       width: 100%;
@@ -2335,7 +2335,7 @@ exports.CompletedRecievedDocument = (
                     <tr>
                       <td style="background-color: #dadadb; border-radius: 4px">
                         <a
-                          href=${documentUrl}
+                          href="${encodeURI(documentUrl)}"
                           style="
                             display: inline-block;
                             padding: 10px 20px;
@@ -2601,7 +2601,7 @@ exports.CarbonCopy = (
                   <tr>
                     <td style="padding: 0 5px; text-align: center">
                       <img
-                        src=${documentPreview}
+                      src="${encodeURI(documentPreview)}" 
                         alt="Document Preview 1"
                         style="width: 100%; max-width: 180px; max-height: 250px"
                       />
@@ -2618,7 +2618,7 @@ exports.CarbonCopy = (
                   <tr>
                     <td style="background-color: #dadadb; border-radius: 4px">
                       <a
-                        href=${documentUrl}
+                        href="${encodeURI(documentUrl)}"
                         style="
                           display: inline-block;
                           padding: 10px 20px;
