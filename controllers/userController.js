@@ -33,6 +33,7 @@ const {
   AnnotationFlags,
   setGraphicsState,
 } = require("pdf-lib");
+const { createPdfWithImagePlacements } = require("../utils/PrePdf");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -494,537 +495,517 @@ exports.deleteTemplate = async (req, res) => {
   }
 };
 
-exports.agreeDocument = asyncHandler(async (req, res, next) => {
-  try {
-    const { senderEmail, documentKey } = req.body;
-    if (!senderEmail || !documentKey) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
+// exports.agreeDocument = asyncHandler(async (req, res, next) => {
+//   try {
+//     const { senderEmail, documentKey } = req.body;
+//     if (!senderEmail || !documentKey) {
+//       return res.status(400).json({ error: "Missing required fields" });
+//     }
 
-    // 1. Parse placeholders array from the request body.
-    let placeholdersFromReq = [];
-    if (req.body.placeholders) {
-      try {
-        placeholdersFromReq = JSON.parse(req.body.placeholders);
-      } catch (parseErr) {
-        return res.status(400).json({ error: "Invalid JSON in placeholders" });
-      }
-    }
+//     // 1. Parse placeholders array from the request body.
+//     let placeholdersFromReq = [];
+//     if (req.body.placeholders) {
+//       try {
+//         placeholdersFromReq = JSON.parse(req.body.placeholders);
+//       } catch (parseErr) {
+//         return res.status(400).json({ error: "Invalid JSON in placeholders" });
+//       }
+//     }
 
-    // 2. Find sender user and present user
-    const senderUser = await User.findOne({ email: senderEmail });
-    if (!senderUser) {
-      return res.status(404).json({ error: "Sender user not found" });
-    }
-    const presentUser = await User.findById(req.user.id);
-    if (!presentUser) {
-      return res.status(404).json({ error: "Present user not found" });
-    }
+//     // 2. Find sender user and present user
+//     const senderUser = await User.findOne({ email: senderEmail });
+//     if (!senderUser) {
+//       return res.status(404).json({ error: "Sender user not found" });
+//     }
+//     const presentUser = await User.findById(req.user.id);
+//     if (!presentUser) {
+//       return res.status(404).json({ error: "Present user not found" });
+//     }
 
-    // 3. Locate the document in senderUser.documentsSent by documentKey
-    const document = senderUser.documentsSent.find(
-      (doc) => doc.documentKey === documentKey
-    );
-    if (!document) {
-      return res
-        .status(404)
-        .json({ error: "Document not found in sender user's documentsSent" });
-    }
+//     // 3. Locate the document in senderUser.documentsSent by documentKey
+//     const document = senderUser.documentsSent.find(
+//       (doc) => doc.documentKey === documentKey
+//     );
+//     if (!document) {
+//       return res
+//         .status(404)
+//         .json({ error: "Document not found in sender user's documentsSent" });
+//     }
 
-    // 4. Mark the recipient whose email matches the present user as "signed"
-    const recipient = document.recipients.find(
-      (r) => r.email === presentUser.email
-    );
-    if (!recipient) {
-      return res.status(404).json({ error: "Recipient not found in document" });
-    }
-    // If already signed, return early (optional)
-    if (recipient.status === "signed") {
-      return res
-        .status(200)
-        .json({ message: "Document already marked as signed" });
-    }
+//     // 4. Mark the recipient whose email matches the present user as "signed"
+//     const recipient = document.recipients.find(
+//       (r) => r.email === presentUser.email
+//     );
+//     if (!recipient) {
+//       return res.status(404).json({ error: "Recipient not found in document" });
+//     }
+//     // If already signed, return early (optional)
+//     if (recipient.status === "signed") {
+//       return res
+//         .status(200)
+//         .json({ message: "Document already marked as signed" });
+//     }
 
-    recipient.status = "signed";
-    recipient.statusTime = new Date();
-    const ipAddress =
-      req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
-    const nowDate = Date.now();
-    recipient.recipientSignedIp = ipAddress;
-    if (recipient.recipientViewedIp === null) {
-      recipient.recipientViewedIp = ipAddress;
-    }
-    if (recipient.recipientViewedTime === null) {
-      recipient.recipientViewedTime = nowDate;
-    }
-    recipient.recipientSignedTime = nowDate;
+//     recipient.status = "signed";
+//     recipient.statusTime = new Date();
+//     const ipAddress =
+//       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
+//     const nowDate = Date.now();
+//     recipient.recipientSignedIp = ipAddress;
+//     if (recipient.recipientViewedIp === null) {
+//       recipient.recipientViewedIp = ipAddress;
+//     }
+//     if (recipient.recipientViewedTime === null) {
+//       recipient.recipientViewedTime = nowDate;
+//     }
+//     recipient.recipientSignedTime = nowDate;
 
-    // Update placeholders with any new signature or text/date values
-    for (const phReq of placeholdersFromReq) {
-      const { email, type, value } = phReq;
-      const docPlaceholder = document.placeholders.find(
-        (p) => p.email === email && p.type === type
-      );
-      if (!docPlaceholder) continue;
-      const matchingFile = req.files.find((f) => f.originalname === value);
+//     // Update placeholders with any new signature or text/date values
+//     for (const phReq of placeholdersFromReq) {
+//       const { email, type, value } = phReq;
+//       const docPlaceholder = document.placeholders.find(
+//         (p) => p.email === email && p.type === type
+//       );
+//       if (!docPlaceholder) continue;
+//       const matchingFile = req.files.find((f) => f.originalname === value);
 
-      // If we found a file, treat it as an image to upload
-      if (matchingFile) {
-        // For signature, text, or date placeholders that are images
-        const tempDir = path.join(__dirname, "../temp");
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-        const uniqueId = uuidv4();
-        const imageFile = `${uniqueId}.png`;
-        const tempFilePath = path.join(tempDir, imageFile);
+//       // If we found a file, treat it as an image to upload
+//       if (matchingFile) {
+//         // For signature, text, or date placeholders that are images
+//         const tempDir = path.join(__dirname, "../temp");
+//         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+//         const uniqueId = uuidv4();
+//         const imageFile = `${uniqueId}.png`;
+//         const tempFilePath = path.join(tempDir, imageFile);
 
-        // Save locally, then read into buffer
-        fs.writeFileSync(tempFilePath, matchingFile.buffer);
-        const imageBuffer = fs.readFileSync(tempFilePath);
+//         // Save locally, then read into buffer
+//         fs.writeFileSync(tempFilePath, matchingFile.buffer);
+//         const imageBuffer = fs.readFileSync(tempFilePath);
 
-        // Upload to S3
-        const imagesFolder = `signatures/${documentKey}`;
-        const imageKey = `${imagesFolder}/${imageFile}`;
-        const imageUpload = await putObject(imageBuffer, imageKey, "image/png");
-        if (imageUpload.status !== 200) {
-          fs.unlinkSync(tempFilePath);
-          return res
-            .status(500)
-            .json({ error: "Failed to upload image placeholder" });
-        }
-        docPlaceholder.value = imageUpload.url;
-        fs.unlinkSync(tempFilePath);
-      } else {
-        // If there's no matching file, but we have text or date placeholders,
-        // store the literal value
-        if ((type === "text" || type === "date") && value) {
-          docPlaceholder.value = value;
-        }
-      }
-    }
+//         // Upload to S3
+//         const imagesFolder = `signatures/${documentKey}`;
+//         const imageKey = `${imagesFolder}/${imageFile}`;
+//         const imageUpload = await putObject(imageBuffer, imageKey, "image/png");
+//         if (imageUpload.status !== 200) {
+//           fs.unlinkSync(tempFilePath);
+//           return res
+//             .status(500)
+//             .json({ error: "Failed to upload image placeholder" });
+//         }
+//         docPlaceholder.value = imageUpload.url;
+//         fs.unlinkSync(tempFilePath);
+//       } else {
+//         // If there's no matching file, but we have text or date placeholders,
+//         // store the literal value
+//         if ((type === "text" || type === "date") && value) {
+//           docPlaceholder.value = value;
+//         }
+//       }
+//     }
 
-    // Save the updated senderUser document
-    await senderUser.save();
+//     // Save the updated senderUser document
+//     await senderUser.save();
 
-    // -----------------------------------------------------------------
-    // Update the global Agreement document (if exists) to reflect the changes
-    // -----------------------------------------------------------------
-    const agreement = await Agreement.findOne({ documentKey });
-    if (agreement) {
-      // Update the corresponding recipient in the Agreement's recipients array
-      const globalRecipient = agreement.recipients.find(
-        (rec) => rec.email === presentUser.email
-      );
-      if (globalRecipient) {
-        globalRecipient.status = "signed";
-        globalRecipient.statusTime = new Date();
-        // Set the documentSignedTime to record when the document was signed
-        globalRecipient.documentSignedTime = new Date();
-        if (globalRecipient.documentViewedTime === null) {
-          globalRecipient.documentViewedTime = new Date();
-        }
-      }
-      // Update placeholders in the global Agreement (if applicable)
-      // Update placeholders in the global Agreement (if applicable)
-      for (const phReq of placeholdersFromReq) {
-        const { email, type, value } = phReq;
+//     // -----------------------------------------------------------------
+//     // Update the global Agreement document (if exists) to reflect the changes
+//     // -----------------------------------------------------------------
+//     const agreement = await Agreement.findOne({ documentKey });
+//     if (agreement) {
+//       // Update the corresponding recipient in the Agreement's recipients array
+//       const globalRecipient = agreement.recipients.find(
+//         (rec) => rec.email === presentUser.email
+//       );
+//       if (globalRecipient) {
+//         globalRecipient.status = "signed";
+//         globalRecipient.statusTime = new Date();
+//         // Set the documentSignedTime to record when the document was signed
+//         globalRecipient.documentSignedTime = new Date();
+//         if (globalRecipient.documentViewedTime === null) {
+//           globalRecipient.documentViewedTime = new Date();
+//         }
+//       }
+//       // Update placeholders in the global Agreement (if applicable)
+//       // Update placeholders in the global Agreement (if applicable)
+//       for (const phReq of placeholdersFromReq) {
+//         const { email, type, value } = phReq;
 
-        // 1) Find the matching placeholder in the global Agreement
-        const globalPlaceholder = agreement.placeholders.find(
-          (p) => p.email === email && p.type === type
-        );
-        if (!globalPlaceholder) continue;
+//         // 1) Find the matching placeholder in the global Agreement
+//         const globalPlaceholder = agreement.placeholders.find(
+//           (p) => p.email === email && p.type === type
+//         );
+//         if (!globalPlaceholder) continue;
 
-        // 2) Find the updated local placeholder from the senderUser document
-        const localPh = document.placeholders.find(
-          (p) => p.email === email && p.type === type
-        );
+//         // 2) Find the updated local placeholder from the senderUser document
+//         const localPh = document.placeholders.find(
+//           (p) => p.email === email && p.type === type
+//         );
 
-        // 3) If it's a signature placeholder for the present user, replicate the updated image URL
-        if (type === "signature" && email === presentUser.email) {
-          globalPlaceholder.value = localPh ? localPh.value : "";
-        }
-        // 4) If it's text/date, copy the local placeholder's new value
-        else if ((type === "text" || type === "date") && localPh) {
-          globalPlaceholder.value = localPh.value;
-        }
-      }
+//         // 3) If it's a signature placeholder for the present user, replicate the updated image URL
+//         if (type === "signature" && email === presentUser.email) {
+//           globalPlaceholder.value = localPh ? localPh.value : "";
+//         }
+//         // 4) If it's text/date, copy the local placeholder's new value
+//         else if ((type === "text" || type === "date") && localPh) {
+//           globalPlaceholder.value = localPh.value;
+//         }
+//       }
 
-      await agreement.save();
-    }
+//       await agreement.save();
+//     }
 
-    // 5. If all recipients have signed, generate the final PDF with overlays
-    const allSigned = document.recipients.every((r) => r.status === "signed");
-    if (allSigned) {
-      const pdfDoc = await PDFDocument.create();
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+//     // 5. If all recipients have signed, generate the final PDF with overlays
+//     const allSigned = document.recipients.every((r) => r.status === "signed");
+//     if (allSigned) {
+//       const pdfDoc = await PDFDocument.create();
+//       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-      // Settings for placeholder and footer text sizes
-      const placeholderTextSize = 52;
-      const footerFontSize = 32;
+//       // Settings for placeholder and footer text sizes
+//       const placeholderTextSize = 52;
+//       const footerFontSize = 32;
 
-      // Define margins
-      const bottomMargin = 40;
-      const leftMargin = 40;
-      const rightMargin = 40;
+//       // Define margins
+//       const bottomMargin = 40;
+//       const leftMargin = 40;
+//       const rightMargin = 40;
 
-      // Load check icon
-      const checkIconPath = path.join(__dirname, "../assets/check.png");
-      let checkIconBytes;
-      try {
-        checkIconBytes = fs.readFileSync(checkIconPath);
-      } catch (err) {
-        console.error("Error reading check icon file:", err);
-        checkIconBytes = null;
-      }
-      let checkIconImage;
-      if (checkIconBytes) {
-        checkIconImage = await pdfDoc.embedPng(checkIconBytes);
-      }
-      // Icon dimensions
-      const footerIconWidth = 32;
-      const footerIconHeight = 32;
+//       // Load check icon
+//       const checkIconPath = path.join(__dirname, "../assets/check.png");
+//       let checkIconBytes;
+//       try {
+//         checkIconBytes = fs.readFileSync(checkIconPath);
+//       } catch (err) {
+//         console.error("Error reading check icon file:", err);
+//         checkIconBytes = null;
+//       }
+//       let checkIconImage;
+//       if (checkIconBytes) {
+//         checkIconImage = await pdfDoc.embedPng(checkIconBytes);
+//       }
+//       // Icon dimensions
+//       const footerIconWidth = 32;
+//       const footerIconHeight = 32;
 
-      // Footer texts
-      const rightFooterText = "Secured via signbuddy";
-      const leftFooterText = `Document Id - ${document.uniqueId}`;
+//       // Footer texts
+//       const rightFooterText = "Secured via signbuddy";
+//       const leftFooterText = `Document Id - ${document.uniqueId}`;
 
-      // Process each page image
-      for (
-        let pageIndex = 0;
-        pageIndex < document.ImageUrls.length;
-        pageIndex++
-      ) {
-        const pageImageUrl = document.ImageUrls[pageIndex];
-        const response = await axios.get(pageImageUrl, {
-          responseType: "arraybuffer",
-        });
-        const embeddedPage = await pdfDoc.embedJpg(response.data);
-        const pageWidth = embeddedPage.width;
-        const pageHeight = embeddedPage.height;
-        const page = pdfDoc.addPage([pageWidth, pageHeight]);
+//       // Process each page image
+//       for (
+//         let pageIndex = 0;
+//         pageIndex < document.ImageUrls.length;
+//         pageIndex++
+//       ) {
+//         const pageImageUrl = document.ImageUrls[pageIndex];
+//         const response = await axios.get(pageImageUrl, {
+//           responseType: "arraybuffer",
+//         });
+//         const embeddedPage = await pdfDoc.embedJpg(response.data);
+//         const pageWidth = embeddedPage.width;
+//         const pageHeight = embeddedPage.height;
+//         const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-        // Draw the original page image
-        page.drawImage(embeddedPage, {
-          x: 0,
-          y: 0,
-          width: pageWidth,
-          height: pageHeight,
-        });
+//         // Draw the original page image
+//         page.drawImage(embeddedPage, {
+//           x: 0,
+//           y: 0,
+//           width: pageWidth,
+//           height: pageHeight,
+//         });
 
-        // Overlay placeholders on the corresponding page
-        for (const ph of document.placeholders) {
-          if (ph.pageNumber && parseInt(ph.pageNumber) !== pageIndex + 1)
-            continue;
-          if (ph.value) {
-            const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
-            const elementHeight =
-              (parseFloat(ph.size.height) / 100) * pageHeight;
-            const posY =
-              pageHeight -
-              (parseFloat(ph.position.y) / 100) * pageHeight -
-              elementHeight;
-            const width = (parseFloat(ph.size.width) / 100) * pageWidth;
-            const height = (parseFloat(ph.size.height) / 100) * pageHeight;
+//         // Overlay placeholders on the corresponding page
+//         for (const ph of document.placeholders) {
+//           if (ph.pageNumber && parseInt(ph.pageNumber) !== pageIndex + 1)
+//             continue;
+//           if (ph.value) {
+//             const posX = (parseFloat(ph.position.x) / 100) * pageWidth;
+//             const elementHeight =
+//               (parseFloat(ph.size.height) / 100) * pageHeight;
+//             const posY =
+//               pageHeight -
+//               (parseFloat(ph.position.y) / 100) * pageHeight -
+//               elementHeight;
+//             const width = (parseFloat(ph.size.width) / 100) * pageWidth;
+//             const height = (parseFloat(ph.size.height) / 100) * pageHeight;
 
-            if (ph.type === "signature") {
-              try {
-                const sigResponse = await axios.get(ph.value, {
-                  responseType: "arraybuffer",
-                });
-                const embeddedSig = await pdfDoc.embedPng(sigResponse.data);
-                page.drawImage(embeddedSig, {
-                  x: posX,
-                  y: posY,
-                  width,
-                  height,
-                });
-              } catch (err) {
-                console.error(
-                  `Error overlaying signature for ${ph.email}:`,
-                  err
-                );
-              }
-            } else if (ph.type === "text" || ph.type === "date") {
-              try {
-                const textResponse = await axios.get(ph.value, {
-                  responseType: "arraybuffer",
-                });
-                const embeddedText = await pdfDoc.embedPng(textResponse.data);
-                page.drawImage(embeddedText, {
-                  x: posX,
-                  y: posY,
-                  width,
-                  height,
-                });
-              } catch (err) {
-                console.error(
-                  `Error overlaying signature for ${ph.email}:`,
-                  err
-                );
-              }
-            }
-          }
-        }
+//             if (ph.type === "signature") {
+//               try {
+//                 const sigResponse = await axios.get(ph.value, {
+//                   responseType: "arraybuffer",
+//                 });
+//                 const embeddedSig = await pdfDoc.embedPng(sigResponse.data);
+//                 page.drawImage(embeddedSig, {
+//                   x: posX,
+//                   y: posY,
+//                   width,
+//                   height,
+//                 });
+//               } catch (err) {
+//                 console.error(
+//                   `Error overlaying signature for ${ph.email}:`,
+//                   err
+//                 );
+//               }
+//             } else if (ph.type === "text" || ph.type === "date") {
+//               try {
+//                 const textResponse = await axios.get(ph.value, {
+//                   responseType: "arraybuffer",
+//                 });
+//                 const embeddedText = await pdfDoc.embedPng(textResponse.data);
+//                 page.drawImage(embeddedText, {
+//                   x: posX,
+//                   y: posY,
+//                   width,
+//                   height,
+//                 });
+//               } catch (err) {
+//                 console.error(
+//                   `Error overlaying signature for ${ph.email}:`,
+//                   err
+//                 );
+//               }
+//             }
+//           }
+//         }
 
-        // Add footer to the page (if applicable)
-        if (!document.footerPage || document.footerPage == pageIndex + 1) {
-          const rightTextWidth = font.widthOfTextAtSize(
-            rightFooterText,
-            footerFontSize
-          );
-          const totalRightFooterWidth = footerIconWidth + 5 + rightTextWidth;
-          const leftFooterTextX = leftMargin;
-          const leftFooterTextY = bottomMargin;
-          const iconX = pageWidth - rightMargin - totalRightFooterWidth;
-          const iconY = bottomMargin;
-          page.pushOperators(
-            pushGraphicsState(),
-            setGraphicsState(PDFName.of("GS0"))
-          );
-          page.drawText(leftFooterText, {
-            x: leftFooterTextX,
-            y: leftFooterTextY,
-            size: footerFontSize,
-            font: font,
-            color: rgb(0, 0, 0),
-          });
-          if (checkIconImage) {
-            page.drawImage(checkIconImage, {
-              x: iconX,
-              y: iconY,
-              width: footerIconWidth,
-              height: footerIconHeight,
-            });
-          } else {
-            page.drawText("✓", {
-              x: iconX,
-              y: iconY,
-              size: footerIconHeight,
-              font: font,
-              color: rgb(0, 0, 0),
-            });
-          }
-          page.drawText(rightFooterText, {
-            x: iconX + footerIconWidth + 5,
-            y: iconY + (footerIconHeight - footerFontSize) / 2,
-            size: footerFontSize,
-            font: font,
-            color: rgb(0, 0, 0),
-          });
-          page.pushOperators(popGraphicsState());
-        }
-      }
+//         // Add footer to the page (if applicable)
+//         if (!document.footerPage || document.footerPage == pageIndex + 1) {
+//           const rightTextWidth = font.widthOfTextAtSize(
+//             rightFooterText,
+//             footerFontSize
+//           );
+//           const totalRightFooterWidth = footerIconWidth + 5 + rightTextWidth;
+//           const leftFooterTextX = leftMargin;
+//           const leftFooterTextY = bottomMargin;
+//           const iconX = pageWidth - rightMargin - totalRightFooterWidth;
+//           const iconY = bottomMargin;
+//           page.pushOperators(
+//             pushGraphicsState(),
+//             setGraphicsState(PDFName.of("GS0"))
+//           );
+//           page.drawText(leftFooterText, {
+//             x: leftFooterTextX,
+//             y: leftFooterTextY,
+//             size: footerFontSize,
+//             font: font,
+//             color: rgb(0, 0, 0),
+//           });
+//           if (checkIconImage) {
+//             page.drawImage(checkIconImage, {
+//               x: iconX,
+//               y: iconY,
+//               width: footerIconWidth,
+//               height: footerIconHeight,
+//             });
+//           } else {
+//             page.drawText("✓", {
+//               x: iconX,
+//               y: iconY,
+//               size: footerIconHeight,
+//               font: font,
+//               color: rgb(0, 0, 0),
+//             });
+//           }
+//           page.drawText(rightFooterText, {
+//             x: iconX + footerIconWidth + 5,
+//             y: iconY + (footerIconHeight - footerFontSize) / 2,
+//             size: footerFontSize,
+//             font: font,
+//             color: rgb(0, 0, 0),
+//           });
+//           page.pushOperators(popGraphicsState());
+//         }
+//       }
 
-      // ------------------------------------------------------------------
-      // STEP B: ADD AN EXTRA PAGE FOR THE AUDIT RECORD
-      // ------------------------------------------------------------------
+//       // ------------------------------------------------------------------
+//       // STEP B: ADD AN EXTRA PAGE FOR THE AUDIT RECORD
+//       // ------------------------------------------------------------------
 
-      const docName = document.documentName || "Untitled";
-      const docId = document.uniqueId || document.documentKey;
-      const creationTime = document.documentCreationTime
-        ? new Date(document.documentCreationTime).toLocaleString()
-        : "N/A";
-      const creationIp = document.documentCreationIp || "N/A";
-      const completedTime = new Date().toLocaleString(); // or doc end time
+//       const docName = document.documentName || "Untitled";
+//       const docId = document.uniqueId || document.documentKey;
+//       const creationTime = document.documentCreationTime
+//         ? new Date(document.documentCreationTime).toLocaleString()
+//         : "N/A";
+//       const creationIp = document.documentCreationIp || "N/A";
+//       const completedTime = new Date().toLocaleString(); // or doc end time
 
-      // Created row (sender info)
-      const createdRow = {
-        senderName: senderUser.userName || senderUser.email,
-        senderEmail: senderUser.email,
-        time: creationTime,
-        ip: creationIp,
-      };
+//       // Created row (sender info)
+//       const createdRow = {
+//         senderName: senderUser.userName || senderUser.email,
+//         senderEmail: senderUser.email,
+//         time: creationTime,
+//         ip: creationIp,
+//       };
 
-      // Sent rows: you might store them in doc or track them in recipients
-      // For example, if you have a "documentSentTime" & "documentSentIp" or
-      // if you store each event in an array. We'll just do a dummy example:
-      const sentRows = document.recipients.map((rec) => ({
-        recipientName: rec.userName || rec.email,
-        recipientEmail: rec.email,
-        time: document.documentSentTime
-          ? new Date(document.documentSentTime).toLocaleString()
-          : "N/A",
-        ip: document.documentSentIp || "N/A",
-      }));
+//       // Sent rows: you might store them in doc or track them in recipients
+//       // For example, if you have a "documentSentTime" & "documentSentIp" or
+//       // if you store each event in an array. We'll just do a dummy example:
+//       const sentRows = document.recipients.map((rec) => ({
+//         recipientName: rec.userName || rec.email,
+//         recipientEmail: rec.email,
+//         time: document.documentSentTime
+//           ? new Date(document.documentSentTime).toLocaleString()
+//           : "N/A",
+//         ip: document.documentSentIp || "N/A",
+//       }));
 
-      // Viewed rows: if you track "viewed" status/time in rec.recipientViewedTime
-      const viewedRows = document.recipients
-        .filter((rec) => rec.status === "viewed" || rec.recipientViewedTime)
-        .map((rec) => ({
-          recipientName: rec.userName || rec.email,
-          recipientEmail: rec.email,
-          time: rec.recipientViewedTime
-            ? new Date(rec.recipientViewedTime).toLocaleString()
-            : "N/A",
-          ip: rec.recipientViewedIp || "N/A",
-        }));
+//       // Viewed rows: if you track "viewed" status/time in rec.recipientViewedTime
+//       const viewedRows = document.recipients
+//         .filter((rec) => rec.status === "viewed" || rec.recipientViewedTime)
+//         .map((rec) => ({
+//           recipientName: rec.userName || rec.email,
+//           recipientEmail: rec.email,
+//           time: rec.recipientViewedTime
+//             ? new Date(rec.recipientViewedTime).toLocaleString()
+//             : "N/A",
+//           ip: rec.recipientViewedIp || "N/A",
+//         }));
 
-      // Signed rows: for each rec with status === "signed"
-      const signedRows = document.recipients
-        .filter((rec) => rec.status === "signed")
-        .map((rec) => ({
-          recipientName: rec.userName || rec.email,
-          recipientEmail: rec.email,
-          time: rec.recipientSignedTime
-            ? new Date(rec.recipientSignedTime).toLocaleString()
-            : "N/A",
-          ip: rec.recipientSignedIp || "N/A",
-        }));
+//       // Signed rows: for each rec with status === "signed"
+//       const signedRows = document.recipients
+//         .filter((rec) => rec.status === "signed")
+//         .map((rec) => ({
+//           recipientName: rec.userName || rec.email,
+//           recipientEmail: rec.email,
+//           time: rec.recipientSignedTime
+//             ? new Date(rec.recipientSignedTime).toLocaleString()
+//             : "N/A",
+//           ip: rec.recipientSignedIp || "N/A",
+//         }));
 
-      const finalData = {
-        documentName: docName,
-        documentId: docId,
-        creationTime,
-        creationIp,
-        completedTime,
-        createdRow,
-        sentRows,
-        viewedRows,
-        signedRows,
-      };
-      const { width: firstPageWidth, height: firstPageHeight } = pdfDoc
-        .getPage(0)
-        .getSize();
+//       const finalData = {
+//         documentName: docName,
+//         documentId: docId,
+//         creationTime,
+//         creationIp,
+//         completedTime,
+//         createdRow,
+//         sentRows,
+//         viewedRows,
+//         signedRows,
+//       };
+//       const { width: firstPageWidth, height: firstPageHeight } = pdfDoc
+//         .getPage(0)
+//         .getSize();
 
-      const auditPdfBuffer = await createAuditPdfBuffer(
-        finalData,
-        firstPageWidth,
-        firstPageHeight
-      );
-      // Instead of html-pdf, call our Puppeteer helper:
-      // const finalThing = finalHtml(finalData, pageWidthMM, pageHeightMM);
-      // const htmlPdfBuffer = await createPdfFromHtml(
-      //   finalThing,
-      //   pageWidthMM,
-      //   pageHeightMM
-      // );
+//       const auditPdfBuffer = await createAuditPdfBuffer(
+//         finalData,
+//         firstPageWidth,
+//         firstPageHeight
+//       );
+//       // Instead of html-pdf, call our Puppeteer helper:
+//       // const finalThing = finalHtml(finalData, pageWidthMM, pageHeightMM);
+//       // const htmlPdfBuffer = await createPdfFromHtml(
+//       //   finalThing,
+//       //   pageWidthMM,
+//       //   pageHeightMM
+//       // );
 
-      // 3. Load that PDF with pdf-lib
-      const appendedPdfDoc = await PDFDocument.load(auditPdfBuffer);
+//       // 3. Load that PDF with pdf-lib
+//       const appendedPdfDoc = await PDFDocument.load(auditPdfBuffer);
 
-      // 4. Copy each page from appendedPdfDoc into your main pdfDoc
-      const appendedPages = await pdfDoc.copyPages(
-        appendedPdfDoc,
-        appendedPdfDoc.getPageIndices()
-      );
-      appendedPages.forEach((page) => pdfDoc.addPage(page));
-      const pdfBytes = await pdfDoc.save();
-      const pdfKey = `signedDocuments/${documentKey}.pdf`;
-      const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
-      if (pdfUpload.status !== 200) {
-        return res
-          .status(500)
-          .json({ error: "Failed to upload final signed PDF" });
-      }
-      console.log("Final signed PDF URL:", pdfUpload.url);
-      const finalDocumentUrl = pdfUpload.url;
-      document.signedDocument = pdfUpload.url;
-      const agreement = await Agreement.findOne({ documentKey });
-      agreement.signedDocument = pdfUpload.url;
-      agreement.status = "signed";
-      agreement.save();
+//       // 4. Copy each page from appendedPdfDoc into your main pdfDoc
+//       const appendedPages = await pdfDoc.copyPages(
+//         appendedPdfDoc,
+//         appendedPdfDoc.getPageIndices()
+//       );
+//       appendedPages.forEach((page) => pdfDoc.addPage(page));
+//       const pdfBytes = await pdfDoc.save();
+//       const pdfKey = `signedDocuments/${documentKey}.pdf`;
+//       const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
+//       if (pdfUpload.status !== 200) {
+//         return res
+//           .status(500)
+//           .json({ error: "Failed to upload final signed PDF" });
+//       }
+//       console.log("Final signed PDF URL:", pdfUpload.url);
+//       const finalDocumentUrl = pdfUpload.url;
+//       document.signedDocument = pdfUpload.url;
+//       const agreement = await Agreement.findOne({ documentKey });
+//       agreement.signedDocument = pdfUpload.url;
+//       agreement.status = "signed";
+//       agreement.save();
 
-      try {
-        console.log(
-          docName,
-          senderUser.userName,
-          document.recipients.map((r) => r.userName).join(","),
-          document.ImageUrls[0],
-          finalDocumentUrl
-        );
-        const senderMailBody = CompletedSenderDocument(
-          docName,
-          senderUser.userName || senderUser.email,
-          document.recipients.map((r) => r.userName || r.email).join(", "),
-          document.ImageUrls[0],
-          finalDocumentUrl
-        );
+//       try {
+//         const senderMailBody = CompletedSenderDocument(
+//           docName,
+//           senderUser.userName || senderUser.email,
+//           document.recipients.map((r) => r.userName || r.email).join(", "),
+//           document.ImageUrls[0],
+//           finalDocumentUrl
+//         );
 
-        await sendEmail(
-          senderUser.email,
-          `${docName} has been completed`,
-          senderMailBody
-        );
-        console.log(
-          `CompletedSenderDocument email sent to: ${senderUser.email}`
-        );
-      } catch (err) {
-        console.error("Error sending CompletedSenderDocument email:", err);
-      }
+//         await sendEmail(
+//           senderUser.email,
+//           `${docName} has been completed`,
+//           senderMailBody
+//         );
+//         console.log(
+//           `CompletedSenderDocument email sent to: ${senderUser.email}`
+//         );
+//       } catch (err) {
+//         console.error("Error sending CompletedSenderDocument email:", err);
+//       }
 
-      // (B) Send the "CompletedRecievedDocument" email to each recipient
-      // NEW CODE: Loop over recipients
-      for (const rec of document.recipients) {
-        try {
-          // Only send if rec.email is valid
-          if (!rec.email) continue;
-          console.log(
-            docName,
-            rec.userName,
-            document.ImageUrls[0],
-            finalDocumentUrl
-          );
+//       // (B) Send the "CompletedRecievedDocument" email to each recipient
+//       // NEW CODE: Loop over recipients
+//       for (const rec of document.recipients) {
+//         try {
+//           // Only send if rec.email is valid
+//           if (!rec.email) continue;
 
-          const recipientMailBody = CompletedRecievedDocument(
-            docName,
-            rec.userName || rec.email,
-            document.ImageUrls[0],
-            finalDocumentUrl
-          );
+//           const recipientMailBody = CompletedRecievedDocument(
+//             docName,
+//             rec.userName || rec.email,
+//             document.ImageUrls[0],
+//             finalDocumentUrl
+//           );
 
-          await sendEmail(
-            rec.email,
-            `You have a completed document: "${docName}"`,
-            recipientMailBody
-          );
-          console.log(`CompletedRecievedDocument email sent to: ${rec.email}`);
-        } catch (err) {
-          console.error(
-            `Error sending CompletedRecievedDocument to ${rec.email}:`,
-            err
-          );
-        }
-      }
+//           await sendEmail(
+//             rec.email,
+//             `You have a completed document: "${docName}"`,
+//             recipientMailBody
+//           );
+//           console.log(`CompletedRecievedDocument email sent to: ${rec.email}`);
+//         } catch (err) {
+//           console.error(
+//             `Error sending CompletedRecievedDocument to ${rec.email}:`,
+//             err
+//           );
+//         }
+//       }
 
-      if (document.CC && document.CC.length > 0) {
-        try {
-          const subject = `Carbon Copy of the ${docName}`;
-          console.log(
-            document.documentName,
-            senderUser.avatar,
-            senderUser.userName,
-            senderUser.email,
-            document.ImageUrls[0],
-            pdfUpload.url
-          );
-          // Build the HTML body
-          const ccBody = CarbonCopy(
-            document.documentName || "Untitled",
-            senderUser.avatar || "",
-            senderUser.userName || senderUser.email,
-            senderUser.email,
-            document.ImageUrls[0] || "",
-            pdfUpload.url
-          );
+//       if (document.CC && document.CC.length > 0) {
+//         try {
+//           const subject = `Carbon Copy of the ${docName}`;
 
-          for (const ccEmail of document.CC) {
-            await sendEmail(ccEmail, subject, ccBody);
-          }
-        } catch (err) {
-          console.error("Error sending final document to CC emails:", err);
-        }
-      }
-    }
+//           // Build the HTML body
+//           const ccBody = CarbonCopy(
+//             document.documentName || "Untitled",
+//             senderUser.avatar || "",
+//             senderUser.userName || senderUser.email,
+//             senderUser.email,
+//             document.ImageUrls[0] || "",
+//             pdfUpload.url
+//           );
 
-    await senderUser.save();
-    res.status(200).json({
-      message: "Placeholders updated successfully",
-    });
-  } catch (error) {
-    console.error("Error in agreeDocument:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+//           for (const ccEmail of document.CC) {
+//             await sendEmail(ccEmail, subject, ccBody);
+//           }
+//         } catch (err) {
+//           console.error("Error sending final document to CC emails:", err);
+//         }
+//       }
+//     }
+
+//     await senderUser.save();
+//     res.status(200).json({
+//       message: "Placeholders updated successfully",
+//     });
+//   } catch (error) {
+//     console.error("Error in agreeDocument:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
 
 exports.viewedDocument = asyncHandler(async (req, res, next) => {
   try {
@@ -2225,3 +2206,379 @@ exports.getCounter = async (req, res, next) => {
 //     plans,
 //   });
 // });
+exports.agreeDocument = asyncHandler(async (req, res, next) => {
+  try {
+    const { senderEmail, documentKey } = req.body;
+    if (!senderEmail || !documentKey) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // 1. Parse placeholders array from the request body.
+    let placeholdersFromReq = [];
+    if (req.body.placeholders) {
+      try {
+        placeholdersFromReq = JSON.parse(req.body.placeholders);
+      } catch (parseErr) {
+        return res.status(400).json({ error: "Invalid JSON in placeholders" });
+      }
+    }
+
+    // 2. Find sender user and present user.
+    const senderUser = await User.findOne({ email: senderEmail });
+    if (!senderUser) {
+      return res.status(404).json({ error: "Sender user not found" });
+    }
+    const presentUser = await User.findById(req.user.id);
+    if (!presentUser) {
+      return res.status(404).json({ error: "Present user not found" });
+    }
+
+    // 3. Locate the document in senderUser.documentsSent by documentKey.
+    const document = senderUser.documentsSent.find(
+      (doc) => doc.documentKey === documentKey
+    );
+    if (!document) {
+      return res
+        .status(404)
+        .json({ error: "Document not found in sender user's documentsSent" });
+    }
+
+    // 4. Mark the recipient (whose email matches the present user) as "signed".
+    const recipient = document.recipients.find(
+      (r) => r.email === presentUser.email
+    );
+    if (!recipient) {
+      return res.status(404).json({ error: "Recipient not found in document" });
+    }
+    if (recipient.status === "signed") {
+      return res
+        .status(200)
+        .json({ message: "Document already marked as signed" });
+    }
+    recipient.status = "signed";
+    recipient.statusTime = new Date();
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
+    const nowDate = Date.now();
+    recipient.recipientSignedIp = ipAddress;
+    if (recipient.recipientViewedIp === null) {
+      recipient.recipientViewedIp = ipAddress;
+    }
+    if (recipient.recipientViewedTime === null) {
+      recipient.recipientViewedTime = nowDate;
+    }
+    recipient.recipientSignedTime = nowDate;
+
+    // Update placeholders with any new signature or text/date values.
+    for (const phReq of placeholdersFromReq) {
+      const { email, type, value } = phReq;
+      const docPlaceholder = document.placeholders.find(
+        (p) => p.email === email && p.type === type
+      );
+      if (!docPlaceholder) continue;
+      const matchingFile = req.files.find((f) => f.originalname === value);
+      if (matchingFile) {
+        const tempDir = path.join(__dirname, "../temp");
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+        const uniqueId = uuidv4();
+        const imageFile = `${uniqueId}.png`;
+        const tempFilePath = path.join(tempDir, imageFile);
+        fs.writeFileSync(tempFilePath, matchingFile.buffer);
+        const imageBuffer = fs.readFileSync(tempFilePath);
+        const imagesFolder = `signatures/${documentKey}`;
+        const imageKey = `${imagesFolder}/${imageFile}`;
+        const imageUpload = await putObject(imageBuffer, imageKey, "image/png");
+        if (imageUpload.status !== 200) {
+          fs.unlinkSync(tempFilePath);
+          return res
+            .status(500)
+            .json({ error: "Failed to upload image placeholder" });
+        }
+        docPlaceholder.value = imageUpload.url;
+        fs.unlinkSync(tempFilePath);
+      } else {
+        // For text/date placeholders, simply store the literal value.
+        if ((type === "text" || type === "date") && value) {
+          docPlaceholder.value = value;
+        }
+      }
+    }
+
+    await senderUser.save();
+
+    // -----------------------------------------------------------------
+    // Update the global Agreement document (if exists) to reflect the changes.
+    // -----------------------------------------------------------------
+    const agreement = await Agreement.findOne({ documentKey });
+    if (agreement) {
+      const globalRecipient = agreement.recipients.find(
+        (rec) => rec.email === presentUser.email
+      );
+      if (globalRecipient) {
+        globalRecipient.status = "signed";
+        globalRecipient.statusTime = new Date();
+        globalRecipient.documentSignedTime = new Date();
+        if (globalRecipient.documentViewedTime === null) {
+          globalRecipient.documentViewedTime = new Date();
+        }
+      }
+      for (const phReq of placeholdersFromReq) {
+        const { email, type, value } = phReq;
+        const globalPlaceholder = agreement.placeholders.find(
+          (p) => p.email === email && p.type === type
+        );
+        if (!globalPlaceholder) continue;
+        const localPh = document.placeholders.find(
+          (p) => p.email === email && p.type === type
+        );
+        if (type === "signature" && email === presentUser.email) {
+          globalPlaceholder.value = localPh ? localPh.value : "";
+        } else if ((type === "text" || type === "date") && localPh) {
+          globalPlaceholder.value = localPh.value;
+        }
+      }
+      await agreement.save();
+    }
+
+    // 5. If all recipients have signed, generate the final PDF with overlays.
+    const allSigned = document.recipients.every((r) => r.status === "signed");
+    if (allSigned) {
+      // Use document.pdfDoc (the URL to the original PDF) and document.placeholders
+      // as the placements for overlaying the images.
+      const modifiedPdfBuffer = await createPdfWithImagePlacements(
+        document.pdfDoc,
+        document.placeholders
+      );
+      // Now load the modified PDF to add a footer.
+      const finalPdfDoc = await PDFDocument.load(modifiedPdfBuffer);
+      const pages = finalPdfDoc.getPages();
+      const font = await finalPdfDoc.embedFont(StandardFonts.Helvetica);
+
+      // Decrease footer font size and adjust margins.
+      const footerFontSize = 20; // decreased from 32
+      const bottomMargin = 20;
+      const leftMargin = 20;
+      const rightMargin = 20;
+
+      // Load check icon.
+      const checkIconPath = path.join(__dirname, "../assets/check.png");
+      let checkIconBytes;
+      try {
+        checkIconBytes = fs.readFileSync(checkIconPath);
+      } catch (err) {
+        console.error("Error reading check icon file:", err);
+        checkIconBytes = null;
+      }
+      let checkIconImage = null;
+      if (checkIconBytes) {
+        checkIconImage = await finalPdfDoc.embedPng(checkIconBytes);
+      }
+      const footerIconWidth = 20; // decreased from 32
+      const footerIconHeight = 20;
+      const rightFooterText = "Secured via signbuddy";
+      const leftFooterText = `Document Id - ${document.uniqueId}`;
+
+      // Add footer to each page.
+      pages.forEach((page) => {
+        const pageWidth = page.getWidth();
+        // Draw left footer text.
+        page.drawText(leftFooterText, {
+          x: leftMargin,
+          y: bottomMargin,
+          size: footerFontSize,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
+        // Compute right footer positioning.
+        const rightTextWidth = font.widthOfTextAtSize(
+          rightFooterText,
+          footerFontSize
+        );
+        const totalRightFooterWidth = footerIconWidth + 5 + rightTextWidth;
+        const iconX = pageWidth - rightMargin - totalRightFooterWidth;
+        const iconY = bottomMargin;
+        if (checkIconImage) {
+          page.drawImage(checkIconImage, {
+            x: iconX,
+            y: iconY,
+            width: footerIconWidth,
+            height: footerIconHeight,
+          });
+        } else {
+          page.drawText("✓", {
+            x: iconX,
+            y: iconY,
+            size: footerIconHeight,
+            font: font,
+            color: rgb(0, 0, 0),
+          });
+        }
+        page.drawText(rightFooterText, {
+          x: iconX + footerIconWidth + 5,
+          y: iconY + (footerIconHeight - footerFontSize) / 2,
+          size: footerFontSize,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
+      });
+
+      // ------------------------------------------------------------------
+      // STEP B: ADD AN EXTRA PAGE FOR THE AUDIT RECORD.
+      // ------------------------------------------------------------------
+      const docName = document.documentName || "Untitled";
+      const docId = document.uniqueId || document.documentKey;
+      const creationTime = document.documentCreationTime
+        ? new Date(document.documentCreationTime).toLocaleString()
+        : "N/A";
+      const creationIp = document.documentCreationIp || "N/A";
+      const completedTime = new Date().toLocaleString();
+
+      const createdRow = {
+        senderName: senderUser.userName || senderUser.email,
+        senderEmail: senderUser.email,
+        time: creationTime,
+        ip: creationIp,
+      };
+      const sentRows = document.recipients.map((rec) => ({
+        recipientName: rec.userName || rec.email,
+        recipientEmail: rec.email,
+        time: document.documentSentTime
+          ? new Date(document.documentSentTime).toLocaleString()
+          : "N/A",
+        ip: document.documentSentIp || "N/A",
+      }));
+      const viewedRows = document.recipients
+        .filter((rec) => rec.status === "viewed" || rec.recipientViewedTime)
+        .map((rec) => ({
+          recipientName: rec.userName || rec.email,
+          recipientEmail: rec.email,
+          time: rec.recipientViewedTime
+            ? new Date(rec.recipientViewedTime).toLocaleString()
+            : "N/A",
+          ip: rec.recipientViewedIp || "N/A",
+        }));
+      const signedRows = document.recipients
+        .filter((rec) => rec.status === "signed")
+        .map((rec) => ({
+          recipientName: rec.userName || rec.email,
+          recipientEmail: rec.email,
+          time: rec.recipientSignedTime
+            ? new Date(rec.recipientSignedTime).toLocaleString()
+            : "N/A",
+          ip: rec.recipientSignedIp || "N/A",
+        }));
+
+      const finalData = {
+        documentName: docName,
+        documentId: docId,
+        creationTime,
+        creationIp,
+        completedTime,
+        createdRow,
+        sentRows,
+        viewedRows,
+        signedRows,
+      };
+
+      // Assume createAuditPdfBuffer is defined elsewhere.
+      const { width: firstPageWidth, height: firstPageHeight } = finalPdfDoc
+        .getPage(0)
+        .getSize();
+      const auditPdfBuffer = await createAuditPdfBuffer(
+        finalData,
+        firstPageWidth,
+        firstPageHeight
+      );
+      const appendedPdfDoc = await PDFDocument.load(auditPdfBuffer);
+      const appendedPages = await finalPdfDoc.copyPages(
+        appendedPdfDoc,
+        appendedPdfDoc.getPageIndices()
+      );
+      appendedPages.forEach((page) => finalPdfDoc.addPage(page));
+
+      const pdfBytes = await finalPdfDoc.save();
+      const pdfKey = `signedDocuments/${documentKey}.pdf`;
+      const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
+      if (pdfUpload.status !== 200) {
+        return res
+          .status(500)
+          .json({ error: "Failed to upload final signed PDF" });
+      }
+      console.log("Final signed PDF URL:", pdfUpload.url);
+      const finalDocumentUrl = pdfUpload.url;
+      document.signedDocument = pdfUpload.url;
+      const globalAgreement = await Agreement.findOne({ documentKey });
+      if (globalAgreement) {
+        globalAgreement.signedDocument = pdfUpload.url;
+        globalAgreement.status = "signed";
+        await globalAgreement.save();
+      }
+
+      try {
+        const senderMailBody = CompletedSenderDocument(
+          docName,
+          senderUser.userName || senderUser.email,
+          document.recipients.map((r) => r.userName).join(", "),
+          document.ImageUrls[0],
+          finalDocumentUrl
+        );
+        await sendEmail(
+          senderUser.email,
+          `${docName} has been completed`,
+          senderMailBody
+        );
+      } catch (err) {
+        console.error("Error sending CompletedSenderDocument email:", err);
+      }
+
+      for (const rec of document.recipients) {
+        try {
+          if (!rec.email) continue;
+          const recipientMailBody = CompletedRecievedDocument(
+            docName,
+            rec.userName || rec.email,
+            document.ImageUrls[0],
+            finalDocumentUrl
+          );
+          await sendEmail(
+            rec.email,
+            `You have a completed document: "${docName}"`,
+            recipientMailBody
+          );
+        } catch (err) {
+          console.error(
+            `Error sending CompletedRecievedDocument to ${rec.email}:`,
+            err
+          );
+        }
+      }
+
+      if (document.CC && document.CC.length > 0) {
+        try {
+          const subject = `Carbon Copy of the ${docName}`;
+          const ccBody = CarbonCopy(
+            document.documentName || "Untitled",
+            senderUser.avatar || "",
+            senderUser.userName || senderUser.email,
+            senderUser.email,
+            document.ImageUrls[0] || "",
+            pdfUpload.url
+          );
+          for (const ccEmail of document.CC) {
+            await sendEmail(ccEmail, subject, ccBody);
+          }
+        } catch (err) {
+          console.error("Error sending final document to CC emails:", err);
+        }
+      }
+    }
+
+    await senderUser.save();
+    res.status(200).json({
+      message: "Placeholders updated successfully",
+    });
+  } catch (error) {
+    console.error("Error in agreeDocument:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
