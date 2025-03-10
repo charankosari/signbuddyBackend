@@ -2057,7 +2057,7 @@ exports.CompletedSenderDocument = (
                       color: #dadadb;
                     "
                   >
-                  <strong>${recipientName},</strong> has completed the {Document_name}.
+                  <strong>${recipientName},</strong> has completed the ${documentName}.
                     The completed document could be downloaded from below.
                     Please check your account dashboard for more clear updates.
                   </p>

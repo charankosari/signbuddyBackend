@@ -925,6 +925,13 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       agreement.save();
 
       try {
+        console.log(
+          docName,
+          senderUser.userName,
+          document.recipients.map((r) => r.userName).join(","),
+          document.ImageUrls[0],
+          finalDocumentUrl
+        );
         const senderMailBody = CompletedSenderDocument(
           docName,
           senderUser.userName || senderUser.email,
@@ -951,6 +958,12 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         try {
           // Only send if rec.email is valid
           if (!rec.email) continue;
+          console.log(
+            docName,
+            rec.userName,
+            document.ImageUrls[0],
+            finalDocumentUrl
+          );
 
           const recipientMailBody = CompletedRecievedDocument(
             docName,
@@ -976,7 +989,14 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       if (document.CC && document.CC.length > 0) {
         try {
           const subject = `Carbon Copy of the ${docName}`;
-
+          console.log(
+            document.documentName,
+            senderUser.avatar,
+            senderUser.userName,
+            senderUser.email,
+            document.ImageUrls[0],
+            pdfUpload.url
+          );
           // Build the HTML body
           const ccBody = CarbonCopy(
             document.documentName || "Untitled",
@@ -1287,7 +1307,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
       }
 
       return {
-        agreementKey: agreement.documentKey, // or use agreement._id if preferred
+        agreementKey: agreement.documentKey,
         senderEmail: agreement.senderEmail,
         imageUrls: agreement.imageUrls,
         title: agreement.title,
