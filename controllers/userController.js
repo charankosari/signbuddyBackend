@@ -2355,7 +2355,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       const font = await finalPdfDoc.embedFont(StandardFonts.Helvetica);
 
       // Decrease footer font size and adjust margins.
-      const footerFontSize = 20; // decreased from 32
+      const footerFontSize = 8; // decreased from 32
       const bottomMargin = 20;
       const leftMargin = 20;
       const rightMargin = 20;
@@ -2373,8 +2373,8 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       if (checkIconBytes) {
         checkIconImage = await finalPdfDoc.embedPng(checkIconBytes);
       }
-      const footerIconWidth = 20; // decreased from 32
-      const footerIconHeight = 20;
+      const footerIconWidth = 8; // decreased from 32
+      const footerIconHeight = 8;
       const rightFooterText = "Secured via signbuddy";
       const leftFooterText = `Document Id - ${document.uniqueId}`;
 
