@@ -2023,7 +2023,7 @@ exports.CompletedSenderDocument = (
                 text-align: left;
               "
             >
-              Signing made easy, Lorem ipsum dolor sit amet.
+            The Document Signing made easier than ever.
             </p>
           </div>
 
@@ -2274,7 +2274,7 @@ exports.CompletedRecievedDocument = (
                 text-align: left;
               "
             >
-              Signing made easy, Lorem ipsum dolor sit amet.
+             The Document Signing made easier than ever.
             </p>
           </div>
 
