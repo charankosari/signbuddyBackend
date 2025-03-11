@@ -344,7 +344,7 @@ exports.userDetails = asyncHandler(async (req, res, next) => {
     return next(new errorHandler("Login to access this resource", 400));
   }
   user.updateSubscriptionIfExpired();
-  u.refillFreeCredits();
+  user.refillFreeCredits();
   user.save();
   const templatesCount = user.templates.length;
 
