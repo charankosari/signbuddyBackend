@@ -293,6 +293,7 @@ exports.login = asyncHandler(async (req, res, next) => {
 
   // Ensure user exists and fetch password
   const user = await User.findOne({ email }).select("+password");
+  u.refillFreeCredits();
   user.updateSubscriptionIfExpired();
   user.save();
   if (!user) {
@@ -344,6 +345,7 @@ exports.userDetails = asyncHandler(async (req, res, next) => {
     return next(new errorHandler("Login to access this resource", 400));
   }
   user.updateSubscriptionIfExpired();
+  u.refillFreeCredits();
   user.save();
   const templatesCount = user.templates.length;
 
@@ -799,6 +801,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
 
 exports.sendReminder = asyncHandler(async (req, res, next) => {
   const u = await User.findById(req.user.id);
+  u.refillFreeCredits();
   u.updateSubscriptionIfExpired();
   u.save();
   const user = await User.findById(req.user.id);
@@ -806,46 +809,52 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
   try {
     // Check and deduct credit if the user is on a free subscription
     const currentDate = new Date();
+    let deductCredits = false;
 
-    if (user.subscription.type === "free") {
-      // Free plan: deduct 1 credit
-      if (user.credits < 1) {
+    // Check if user has an active paid subscription.
+    // If the subscription type is not "free" and the endDate exists and is in the future,
+    // then no deduction is required.
+    if (
+      user.subscription.type !== "free" &&
+      user.subscription.endDate &&
+      user.subscription.endDate > currentDate
+    ) {
+      deductCredits = false; // Active paid subscription: no credits are deducted.
+    } else {
+      deductCredits = true; // Free subscription or expired paid subscription: credits should be deducted.
+    }
+
+    if (deductCredits) {
+      // Deduct credits: first try freeCredits, then purchasedCredits.
+      if (user.credits.freeCredits >= 1) {
+        user.credits.freeCredits -= 1;
+      } else if (user.credits.purchasedCredits >= 1) {
+        user.credits.purchasedCredits -= 1;
+      } else {
         return res.status(403).json({
-          message: "You do not have enough credits to send a reminder.",
+          error: "You do not have enough credits to send a reminder.",
         });
       }
-      user.credits -= 1;
+      // Update the totalCredits field.
+      user.credits.totalCredits =
+        user.credits.freeCredits + user.credits.purchasedCredits;
+
+      // Log the deduction event in creditsHistory.
       user.creditsHistory.push({
-        thingUsed: "reminder",
+        thingUsed: "Reminder",
         creditsUsed: "1",
         timestamp: currentDate,
+        description: "Reminder sent using credits",
       });
     } else {
-      // Subscription plan
-      if (
-        user.subscription.endDate &&
-        user.subscription.endDate > currentDate
-      ) {
-        // Active subscription: record as "Organisation plan" (no credits deduction)
-        user.creditsHistory.push({
-          thingUsed: "reminder",
-          creditsUsed: "1",
-          timestamp: currentDate,
-        });
-      } else {
-        // Subscription expired or endDate not set: treat as free
-        if (user.credits < 1) {
-          return res.status(403).json({
-            message: "You do not have enough credits to send a reminder.",
-          });
-        }
-        user.credits -= 1;
-        user.creditsHistory.push({
-          thingUsed: "reminder",
-          creditsUsed: "1",
-          timestamp: currentDate,
-        });
-      }
+      // For active paid subscriptions, no credits are deducted.
+      // Still log the event (you can mark creditsUsed as "0" to indicate no deduction).
+      user.creditsHistory.push({
+        thingUsed: "Reminder",
+        creditsUsed: "1",
+        timestamp: currentDate,
+        description: "Reminder sent using subscription",
+      });
     }
 
     const {
@@ -1176,6 +1185,7 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
 exports.sendAgreements = asyncHandler(async (req, res, next) => {
   try {
     const u = await User.findById(req.user.id).select("+creditsHistory");
+    u.refillFreeCredits();
     u.updateSubscriptionIfExpired();
     u.save();
     const user = await User.findById(req.user.id).select("+creditsHistory");
@@ -1184,36 +1194,53 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       return res.status(401).json({ error: "Unauthorized user" });
     }
     const currentDate = new Date();
-
-    // Determine if credits should be deducted.
     let deductCredits = false;
 
-    if (user.subscription.type === "free") {
-      deductCredits = true;
-    } else if (
-      !user.subscription.endDate ||
-      user.subscription.endDate <= currentDate
+    // Check if user has an active paid subscription.
+    // If the subscription type is not "free" and the endDate exists and is in the future,
+    // then no deduction is required.
+    if (
+      user.subscription.type !== "free" &&
+      user.subscription.endDate &&
+      user.subscription.endDate > currentDate
     ) {
-      // For non-free subscriptions with expired or missing endDate, deduct credits.
-      deductCredits = true;
+      deductCredits = false; // Active paid subscription: no credits are deducted.
+    } else {
+      deductCredits = true; // Free subscription or expired paid subscription: credits should be deducted.
     }
 
     if (deductCredits) {
-      if (user.credits >= 10) {
-        user.credits -= 10;
+      // Deduct credits: first try freeCredits, then purchasedCredits.
+      if (user.credits.freeCredits >= 10) {
+        user.credits.freeCredits -= 10;
+      } else if (user.credits.purchasedCredits >= 10) {
+        user.credits.purchasedCredits -= 10;
       } else {
         return res
           .status(403)
           .json({ error: "You do not have enough credits to send." });
       }
-    }
+      // Update the totalCredits field.
+      user.credits.totalCredits =
+        user.credits.freeCredits + user.credits.purchasedCredits;
 
-    // Log the document send (this will only be added once)
-    user.creditsHistory.push({
-      thingUsed: "documentSent",
-      creditsUsed: "10",
-      timestamp: currentDate,
-    });
+      // Log the deduction event in creditsHistory.
+      user.creditsHistory.push({
+        thingUsed: "documentSent",
+        creditsUsed: "10",
+        timestamp: currentDate,
+        description: "Document sent using credits",
+      });
+    } else {
+      // For active paid subscriptions, no credits are deducted.
+      // Still log the event (you can mark creditsUsed as "0" to indicate no deduction).
+      user.creditsHistory.push({
+        thingUsed: "documentSent",
+        creditsUsed: "10",
+        timestamp: currentDate,
+        description: "Document sent using subscription",
+      });
+    }
 
     if (!req.body.emails || !req.body.names) {
       return res.status(400).json({ error: "Emails and names are required" });

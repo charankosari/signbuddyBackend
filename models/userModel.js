@@ -8,7 +8,7 @@ const { type } = require("os");
 const CreditHistorySchema = new mongoose.Schema({
   thingUsed: {
     type: String,
-    enum: ["Ai", "documentSent", "reminder", "purchase", "Refill"],
+    enum: ["Ai", "documentSent", "Reminder", "purchase", "Refill"],
     required: true,
   },
   creditsUsed: {
@@ -64,8 +64,13 @@ const userSchema = new mongoose.Schema({
     default: "user",
   },
   credits: {
-    type: Number,
-    default: 0,
+    freeCredits: { type: Number, default: 30 },
+    purchasedCredits: { type: Number, default: 0 },
+    totalCredits: { type: Number, default: 30 },
+    refillTime: {
+      type: Date,
+      default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
   },
   subscription: {
     type: {
@@ -328,6 +333,29 @@ userSchema.methods.updateSubscriptionIfExpired = function () {
     this.subscription.type = "free";
     // Clear the subscription endDate
     this.subscription.endDate = null;
+  }
+};
+
+userSchema.methods.refillFreeCredits = async function () {
+  const now = new Date();
+  if (this.credits.refillTime && now >= this.credits.refillTime) {
+    // Reset free credits to 30
+    this.credits.freeCredits = 30;
+    // Update total credits to be the sum of free and purchased credits
+    this.credits.totalCredits =
+      this.credits.freeCredits + this.credits.purchasedCredits;
+
+    // Add a record in creditsHistory about the refill
+    this.creditsHistory.push({
+      thingUsed: "Refill",
+      creditsUsed: "30",
+      description: "Free credits refilled",
+      timestamp: new Date(),
+    });
+
+    // Set a new refillTime 30 days from now
+    this.credits.refillTime = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.save();
   }
 };
 
