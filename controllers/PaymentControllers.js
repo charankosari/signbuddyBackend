@@ -272,7 +272,11 @@ exports.PlaceOrder = asyncHandler(async (req, res, next) => {
   let amount = 0;
   let credits = 0;
   let subscriptionType = null;
-
+  if (planType === "subscription" && user.subscription.type !== "free") {
+    return res
+      .status(400)
+      .json({ error: "You already have an active subscription" });
+  }
   // First, get the Plans document (assuming there's only one)
   const plansDoc = await Plan.findOne({});
   if (!plansDoc) {
