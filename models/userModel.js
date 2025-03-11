@@ -339,21 +339,23 @@ userSchema.methods.updateSubscriptionIfExpired = function () {
 userSchema.methods.refillFreeCredits = async function () {
   const now = new Date();
   if (this.credits.refillTime && now >= this.credits.refillTime) {
-    // Reset free credits to 30
-    this.credits.freeCredits = 30;
-    // Update total credits to be the sum of free and purchased credits
-    this.credits.totalCredits =
-      this.credits.freeCredits + this.credits.purchasedCredits;
+    // Only refill free credits if they are less than 30
+    if (this.credits.freeCredits < 30) {
+      this.credits.freeCredits = 30;
+      // Update total credits to be the sum of free and purchased credits
+      this.credits.totalCredits =
+        this.credits.freeCredits + this.credits.purchasedCredits;
 
-    // Add a record in creditsHistory about the refill
-    this.creditsHistory.push({
-      thingUsed: "Refill",
-      creditsUsed: "30",
-      description: "Free credits refilled",
-      timestamp: new Date(),
-    });
+      // Add a record in creditsHistory about the refill
+      this.creditsHistory.push({
+        thingUsed: "Refill",
+        creditsUsed: "30",
+        description: "Free credits refilled",
+        timestamp: new Date(),
+      });
+    }
 
-    // Set a new refillTime 30 days from now
+    // Always set a new refillTime 30 days from now, regardless of whether a refill occurred
     this.credits.refillTime = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await this.save();
   }

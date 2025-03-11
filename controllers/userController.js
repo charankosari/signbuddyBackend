@@ -170,13 +170,12 @@ exports.register = asyncHandler(async (req, res, next) => {
     // Check if the email exists in PreUser. If so, assign 100 credits.
     const preUser = await PreUser.findOne({ email });
     if (preUser) {
-      user.credits = 100;
+      user.credits.freeCredits = 100;
       message =
         "Registration successful. You have been rewarded with 100 credits.";
       await PreUser.deleteOne({ email });
     } else {
-      // If neither record exists, assign 30 credits.
-      user.credits = 30;
+      user.credits.freeCredits = 30;
       message =
         "Registration successful. You have been awarded with 30 credits.";
     }
