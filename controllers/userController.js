@@ -799,11 +799,11 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
 });
 
 exports.sendReminder = asyncHandler(async (req, res, next) => {
-  const u = await User.findById(req.user.id);
+  const u = await User.findById(req.user.id).select("+creditsHistory");
   u.refillFreeCredits();
   u.updateSubscriptionIfExpired();
   u.save();
-  const user = await User.findById(req.user.id);
+  let user = await User.findById(req.user.id).select("+creditsHistory");
   if (!user) return res.status(404).json({ message: "User not found" });
   try {
     // Check and deduct credit if the user is on a free subscription
@@ -873,6 +873,7 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
     const foundDoc = sender.documentsSent.find(
       (d) => d.documentKey === fileKey
     );
+
     if (!foundDoc) {
       return res
         .status(404)
@@ -893,19 +894,23 @@ exports.sendReminder = asyncHandler(async (req, res, next) => {
 
     // 8) Retrieve custom email details from the user model
     //    If you want to use doc.CustomEmail instead, you can do so
-    const customEmail = sender.emailBody;
-    if (!customEmail || !customEmail.subject || !customEmail.emailBody) {
-      return res
-        .status(400)
-        .json({ message: "Custom email details not set in user profile" });
+    if (
+      !foundDoc.CustomEmail ||
+      !foundDoc.CustomEmail.subject ||
+      !foundDoc.CustomEmail.emailBody
+    ) {
+      return res.status(400).json({
+        message: "Custom email details not set in the document",
+      });
     }
+    // const customEmail = foundDoc.CustomEmail;
 
     // 9) For each recipient, send a reminder
     for (let i = 0; i < emails.length; i++) {
       const email = emails[i];
       await sendEmail(
         email,
-        customEmail.subject,
+        "Complete pending document",
         sendDocument(
           foundDoc.documentName,
           sender.avatar,
