@@ -381,18 +381,29 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
 
   // 7. If planType is credits, parse and add to user credits
   if (paymentRecord.planType === "credits") {
-    // Safely parse credits
+    // Safely parse credits from the payment record
     const parsedCredits = parseInt(paymentRecord.credits, 10);
 
-    user.credits += parsedCredits;
+    // Add the purchased credits to the user's purchasedCredits field
+    user.credits.purchasedCredits += parsedCredits;
 
+    // Update totalCredits (sum of freeCredits and purchasedCredits)
+    user.credits.totalCredits =
+      user.credits.freeCredits + user.credits.purchasedCredits;
+
+    // Log the purchase event in creditsHistory with a timestamp and description
     user.creditsHistory.push({
       thingUsed: "purchase",
       creditsUsed: parsedCredits.toString(),
+      timestamp: new Date(),
+      description: "purchased credits",
     });
   } else if (paymentRecord.planType === "subscription") {
+    // Update the subscription type and timestamp
     user.subscription.type = paymentRecord.subscriptionType;
     user.subscription.timeStamp = new Date();
+
+    // Set the subscription end date based on the type (monthly/yearly)
     user.setSubscriptionEndDate();
   }
 
