@@ -10,8 +10,13 @@ const deletedAccountsSchema = new mongoose.Schema(
       match: [/.+@.+\..+/, "Please enter a valid email address"],
     },
     credits: {
-      type: Number,
-      required: true,
+      freeCredits: { type: Number, default: 30 },
+      purchasedCredits: { type: Number, default: 0 },
+      totalCredits: { type: Number, default: 30 },
+      refillTime: {
+        type: Date,
+        default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
     },
   },
   {
