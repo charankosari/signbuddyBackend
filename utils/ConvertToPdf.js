@@ -63,6 +63,24 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   let y = pageHeight - margin;
 
+  // Variables for audit record pagination:
+  // On first page, allow 9 records; on subsequent pages, allow 10 records.
+  let auditRecordCount = 0;
+  let currentAuditPageIndex = 0; // 0 = first page
+
+  // Helper to increment audit record count and start new page if limit reached.
+  function incrementAuditCount() {
+    auditRecordCount++;
+    if (
+      (currentAuditPageIndex === 0 && auditRecordCount >= 9) ||
+      (currentAuditPageIndex > 0 && auditRecordCount >= 10)
+    ) {
+      newPage();
+      currentAuditPageIndex++;
+      auditRecordCount = 0;
+    }
+  }
+
   // Add footer to current page and create a new one
   function newPage() {
     addFooter();
@@ -243,7 +261,11 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
     lineSpacing: lineSpacingHeading2,
   });
 
-  // 5) Created row
+  // Reset audit record counter for the audit records section.
+  auditRecordCount = 0;
+  currentAuditPageIndex = 0;
+
+  // 5) Created row (if exists)
   if (data.createdRow) {
     drawLineOfText(
       `Created by ${data.createdRow.senderName} (${data.createdRow.senderEmail}) at ${data.createdRow.time}`,
@@ -254,6 +276,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
       lineSpacing: lineSpacingBodyNarrow,
     });
     drawSeparatorLine(15, 20);
+    incrementAuditCount();
   }
 
   // 6) Sent rows
@@ -268,6 +291,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
         lineSpacing: lineSpacingBodyNarrow,
       });
       drawSeparatorLine(15, 20);
+      incrementAuditCount();
     }
   }
 
@@ -283,6 +307,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
         lineSpacing: lineSpacingBodyNarrow,
       });
       drawSeparatorLine(15, 20);
+      incrementAuditCount();
     }
   }
 
@@ -298,6 +323,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
         lineSpacing: lineSpacingBodyNarrow,
       });
       drawSeparatorLine(15, 20);
+      incrementAuditCount();
     }
   }
 
