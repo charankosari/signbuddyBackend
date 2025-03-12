@@ -11,7 +11,7 @@ const {
 } = require("pdf-lib");
 
 /**
- * Creates a single-page PDF buffer containing audit information.
+ * Creates a multi-page PDF buffer containing audit information.
  *
  * @param {Object} data - The audit data to be displayed.
  * @param {number} pageWidth - The width of the page to create.
@@ -59,12 +59,71 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   const footerIconHeight = 10;
   const footerFontSize = 8;
 
-  // Create a single-page PDF
-  const page = pdfDoc.addPage([pageWidth, pageHeight]);
-
-  // Current writing coordinates (start near top-left margin)
-  let x = margin;
+  // Create initial page
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
   let y = pageHeight - margin;
+
+  // Add footer to current page and create a new one
+  function newPage() {
+    addFooter();
+    page = pdfDoc.addPage([pageWidth, pageHeight]);
+    y = pageHeight - margin;
+  }
+
+  // Add footer on the current page using the provided footer settings
+  function addFooter() {
+    page.pushOperators(
+      pushGraphicsState(),
+      setGraphicsState(PDFName.of("GS0"))
+    );
+    // Left footer
+    page.drawText(leftFooterText, {
+      x: leftMargin,
+      y: bottomMargin,
+      size: footerFontSize,
+      font: helvetica,
+      color: rgb(0, 0, 0),
+    });
+    // Right footer (icon + text)
+    const rightTextWidth = helvetica.widthOfTextAtSize(
+      rightFooterText,
+      footerFontSize
+    );
+    const totalRightFooterWidth = footerIconWidth + 5 + rightTextWidth;
+    const iconX = pageWidth - rightMargin - totalRightFooterWidth;
+    const iconY = bottomMargin;
+    if (checkIconImage) {
+      page.drawImage(checkIconImage, {
+        x: iconX,
+        y: iconY,
+        width: footerIconWidth,
+        height: footerIconHeight,
+      });
+    } else {
+      page.drawText("✓", {
+        x: iconX,
+        y: iconY,
+        size: footerIconHeight,
+        font: helvetica,
+        color: rgb(0, 0, 0),
+      });
+    }
+    page.drawText(rightFooterText, {
+      x: iconX + footerIconWidth + 5,
+      y: iconY + (footerIconHeight - footerFontSize) / 2,
+      size: footerFontSize,
+      font: helvetica,
+      color: rgb(0, 0, 0),
+    });
+    page.pushOperators(popGraphicsState());
+  }
+
+  // Helper to check if there is enough space; if not, add a new page.
+  function ensureSpace(requiredSpace) {
+    if (y - requiredSpace < bottomMargin) {
+      newPage();
+    }
+  }
 
   /**
    * Draw a line of text and update the y-position.
@@ -76,8 +135,8 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
       color = rgb(0, 0, 0),
       lineSpacing = lineSpacingBody,
     } = options;
-
-    page.drawText(txt, { x, y, font, size, color });
+    ensureSpace(lineSpacing);
+    page.drawText(txt, { x: margin, y, font, size, color });
     y -= lineSpacing;
   }
 
@@ -85,6 +144,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
    * Draw a light grey horizontal line across the page.
    */
   function drawSeparatorLine(spacingAbove = 10, spacingBelow = 10) {
+    ensureSpace(spacingAbove + spacingBelow);
     y -= spacingAbove;
     page.drawLine({
       start: { x: margin, y },
@@ -101,21 +161,19 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   function drawVerifiedLine() {
     const baseText = "Document is verified & completed with ";
     const linkText = "signbuddy.in";
-
-    // Draw base text in normal color
+    // Check space for two lines
+    ensureSpace(bodySize * 2);
+    // Draw base text
     page.drawText(baseText, {
-      x,
+      x: margin,
       y,
       font: helvetica,
       size: bodySize,
       color: rgb(0, 0, 0),
     });
-
-    // Measure how wide the base text is
     const baseTextWidth = helvetica.widthOfTextAtSize(baseText, bodySize);
-    const linkX = x + baseTextWidth;
-
-    // Draw link text in blue
+    const linkX = margin + baseTextWidth;
+    // Draw link text
     page.drawText(linkText, {
       x: linkX,
       y,
@@ -123,8 +181,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
       size: bodySize,
       color: rgb(0, 0, 1),
     });
-
-    // Create the link annotation around the linkText
+    // Create link annotation
     const linkWidth = helvetica.widthOfTextAtSize(linkText, bodySize);
     const linkAnnotation = pdfDoc.context.obj({
       Type: "Annot",
@@ -143,9 +200,12 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
       page.node.set(PDFName.of("Annots"), annots);
     }
     annots.push(linkAnnotation);
-
     y -= bodySize * 2;
   }
+
+  // ---------------------------
+  // Begin Drawing Content
+  // ---------------------------
 
   // 1) Main heading
   drawLineOfText("SignBuddy", {
@@ -241,53 +301,8 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
     }
   }
 
-  // 9) Footer
-  page.pushOperators(pushGraphicsState(), setGraphicsState(PDFName.of("GS0")));
-
-  // Left footer
-  page.drawText(leftFooterText, {
-    x: leftMargin,
-    y: bottomMargin,
-    size: footerFontSize,
-    font: helvetica,
-    color: rgb(0, 0, 0),
-  });
-
-  // Right footer (icon + text)
-  const rightTextWidth = helvetica.widthOfTextAtSize(
-    rightFooterText,
-    footerFontSize
-  );
-  const totalRightFooterWidth = footerIconWidth + 5 + rightTextWidth;
-  const iconX = pageWidth - rightMargin - totalRightFooterWidth;
-  const iconY = bottomMargin;
-
-  if (checkIconImage) {
-    page.drawImage(checkIconImage, {
-      x: iconX,
-      y: iconY,
-      width: footerIconWidth,
-      height: footerIconHeight,
-    });
-  } else {
-    page.drawText("✓", {
-      x: iconX,
-      y: iconY,
-      size: footerIconHeight,
-      font: helvetica,
-      color: rgb(0, 0, 0),
-    });
-  }
-
-  page.drawText(rightFooterText, {
-    x: iconX + footerIconWidth + 5,
-    y: iconY + (footerIconHeight - footerFontSize) / 2,
-    size: footerFontSize,
-    font: helvetica,
-    color: rgb(0, 0, 0),
-  });
-
-  page.pushOperators(popGraphicsState());
+  // Final footer on the last page
+  addFooter();
 
   // Return PDF buffer
   return pdfDoc.save();
