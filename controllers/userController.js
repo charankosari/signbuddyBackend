@@ -1214,17 +1214,28 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     }
 
     if (deductCredits) {
-      // Deduct credits: first try freeCredits, then purchasedCredits.
-      if (user.credits.freeCredits >= 10) {
-        user.credits.freeCredits -= 10;
-      } else if (user.credits.purchasedCredits >= 10) {
-        user.credits.purchasedCredits -= 10;
-      } else {
+      const requiredCredits = 10;
+      const totalCredits =
+        user.credits.freeCredits + user.credits.purchasedCredits;
+
+      // Check if the user has enough total credits.
+      if (totalCredits < requiredCredits) {
         return res
           .status(403)
           .json({ error: "You do not have enough credits to send." });
       }
-      // Update the totalCredits field.
+
+      // Deduct free credits first.
+      const freeDeduct = Math.min(user.credits.freeCredits, requiredCredits);
+      user.credits.freeCredits -= freeDeduct;
+
+      // Calculate remaining credits needed after using free credits.
+      const remaining = requiredCredits - freeDeduct;
+      if (remaining > 0) {
+        user.credits.purchasedCredits -= remaining;
+      }
+
+      // Update total credits.
       user.credits.totalCredits =
         user.credits.freeCredits + user.credits.purchasedCredits;
 
@@ -1237,7 +1248,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
       });
     } else {
       // For active paid subscriptions, no credits are deducted.
-      // Still log the event (you can mark creditsUsed as "0" to indicate no deduction).
+      // Still log the event (creditsUsed can remain as "10" to denote the cost).
       user.creditsHistory.push({
         thingUsed: "documentSent",
         creditsUsed: "10",
