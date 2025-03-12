@@ -403,11 +403,9 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
       description: "purchased credits",
     });
   } else if (paymentRecord.planType === "subscription") {
-    // Update the subscription type and timestamp
+    // Update subscription based on subscriptionType provided in the payment record
     user.subscription.type = paymentRecord.subscriptionType;
     user.subscription.timeStamp = new Date();
-
-    // Set the subscription end date based on the type (monthly/yearly)
     user.setSubscriptionEndDate();
   }
 
@@ -441,13 +439,7 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
     let planTypeLabel;
     let planDescription;
 
-    if (
-      paymentRecord.planType === "yearly" ||
-      paymentRecord.planType === "monthly"
-    ) {
-      planTypeLabel = `For Organizations/Teams ${paymentRecord.planType}`;
-      planDescription = "Everything Unlimited, with infinite Credits";
-    } else if (paymentRecord.planType === "credits") {
+    if (paymentRecord.planType === "credits") {
       if (paymentRecord.credits === 50) {
         planTypeLabel = "Basic Credits Plan";
         planDescription = "Basic - 50 credits";
@@ -461,6 +453,22 @@ exports.VerifyPayment = asyncHandler(async (req, res, next) => {
         planTypeLabel = "Credits Plan";
         planDescription = `${paymentRecord.credits} credits`;
       }
+    } else if (paymentRecord.planType === "subscription") {
+      // Use subscriptionType from paymentRecord or fallback to user's subscription type
+      const subType = paymentRecord.subscriptionType || user.subscription.type;
+      if (subType === "monthly" || subType === "yearly") {
+        planTypeLabel = `For Organizations/Teams ${subType}`;
+        planDescription = "Everything Unlimited, with infinite Credits";
+      } else {
+        planTypeLabel = `Subscription Plan - ${subType}`;
+        planDescription = "Everything Unlimited, with infinite Credits";
+      }
+    } else if (
+      paymentRecord.planType === "yearly" ||
+      paymentRecord.planType === "monthly"
+    ) {
+      planTypeLabel = `For Organizations/Teams ${paymentRecord.planType}`;
+      planDescription = "Everything Unlimited, with infinite Credits";
     }
     const u = await User.findById(req.user.id);
     const InvoiceHtml = invoiceHtml(
