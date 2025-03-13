@@ -678,7 +678,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
 
   // Process sender's documentsSent for recentDocs
   const recentDocs = user.documentsSent
-    .filter((doc) => doc.documentKey && doc.recipients.length > 0)
+    .filter((doc) => doc.documentKey) // Ensure documentKey is not empty
     .map((doc) => {
       const {
         documentKey,
@@ -722,7 +722,8 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
         signedDocument,
         placeholders,
       };
-    });
+    })
+    .filter((doc) => doc.status !== "draft");
 
   // Process drafts
   const draftsList = user.drafts
