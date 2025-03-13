@@ -543,7 +543,7 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
     recipient.status = "viewed";
     recipient.statusTime = new Date();
     recipient.recipientViewedIp = ipAddress;
-    recipient.recipientViewedTime = Date.now();
+    recipient.recipientViewedTime = new Date();
     await sender.save();
 
     // Update the global Agreement document by finding it using the documentKey
@@ -1146,7 +1146,7 @@ exports.ConvertToImages = asyncHandler(async (req, res, next) => {
       documentName: originalName,
       sentAt: date,
       documentCreationIp: ipAddress,
-      documentCreationTime: Date.now(),
+      documentCreationTime: new Date(),
       uniqueId: uniqueId,
       pdfDoc: docUrl,
     };
@@ -1330,7 +1330,7 @@ exports.sendAgreements = asyncHandler(async (req, res, next) => {
     const docIndex = user.documentsSent.findIndex(
       (doc) => doc.documentKey === fileKey
     );
-    const newDate = Date.now();
+    const newDate = new Date();
     if (docIndex !== -1) {
       user.documentsSent[docIndex] = {
         ...user.documentsSent[docIndex],
@@ -1787,7 +1787,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     recipient.statusTime = new Date();
     const ipAddress =
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
-    const nowDate = Date.now();
+    const nowDate = new Date();
     recipient.recipientSignedIp = ipAddress;
     if (!recipient.recipientViewedIp) {
       recipient.recipientViewedIp = ipAddress;
