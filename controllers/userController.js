@@ -1789,13 +1789,16 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       req.headers["x-forwarded-for"]?.split(",").shift() || req.ip;
     const nowDate = Date.now();
     recipient.recipientSignedIp = ipAddress;
-    if (recipient.recipientViewedIp === null) {
+    if (!recipient.recipientViewedIp) {
       recipient.recipientViewedIp = ipAddress;
     }
-    if (recipient.recipientViewedTime === null) {
+    if (!recipient.recipientViewedTime) {
       recipient.recipientViewedTime = nowDate;
     }
     recipient.recipientSignedTime = nowDate;
+
+    // Immediately save after updating the sign status
+    await senderUser.save();
 
     // Update placeholders with any new signature or text/date values.
     for (const phReq of placeholdersFromReq) {
@@ -1832,6 +1835,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       }
     }
 
+    // Save after placeholder updates
     await senderUser.save();
 
     // -----------------------------------------------------------------
@@ -1846,7 +1850,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         globalRecipient.status = "signed";
         globalRecipient.statusTime = new Date();
         globalRecipient.documentSignedTime = new Date();
-        if (globalRecipient.documentViewedTime === null) {
+        if (!globalRecipient.documentViewedTime) {
           globalRecipient.documentViewedTime = new Date();
         }
       }
@@ -1871,24 +1875,20 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
     // 5. If all recipients have signed, generate the final PDF with overlays.
     const allSigned = document.recipients.every((r) => r.status === "signed");
     if (allSigned) {
-      // Use document.pdfDoc (the URL to the original PDF) and document.placeholders
-      // as the placements for overlaying the images.
+      // Generate modified PDF with overlays.
       const modifiedPdfBuffer = await createPdfWithImagePlacements(
         document.pdfDoc,
         document.placeholders
       );
-      // Now load the modified PDF to add a footer.
       const finalPdfDoc = await PDFDocument.load(modifiedPdfBuffer);
       const pages = finalPdfDoc.getPages();
       const font = await finalPdfDoc.embedFont(StandardFonts.Helvetica);
 
-      // Decrease footer font size and adjust margins.
-      const footerFontSize = 8; // decreased from 32
+      // Adjust footer settings.
+      const footerFontSize = 8;
       const bottomMargin = 20;
       const leftMargin = 20;
       const rightMargin = 20;
-
-      // Load check icon.
       const checkIconPath = path.join(__dirname, "../assets/check.png");
       let checkIconBytes;
       try {
@@ -1901,15 +1901,14 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       if (checkIconBytes) {
         checkIconImage = await finalPdfDoc.embedPng(checkIconBytes);
       }
-      const footerIconWidth = 8; // decreasFed from 32
+      const footerIconWidth = 8;
       const footerIconHeight = 8;
       const rightFooterText = "Secured via signbuddy";
       const leftFooterText = `Document Id - ${document.uniqueId}`;
 
-      // Add footer to each page.
+      // Add footer on every page.
       pages.forEach((page) => {
         const pageWidth = page.getWidth();
-        // Draw left footer text.
         page.drawText(leftFooterText, {
           x: leftMargin,
           y: bottomMargin,
@@ -1917,7 +1916,6 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
           font: font,
           color: rgb(0, 0, 0),
         });
-        // Compute right footer positioning.
         const rightTextWidth = font.widthOfTextAtSize(
           rightFooterText,
           footerFontSize
@@ -2008,7 +2006,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
         signedRows,
       };
 
-      // Assume createAuditPdfBuffer is defined elsewhere.
+      // Create the audit PDF page(s)
       const { width: firstPageWidth, height: firstPageHeight } = finalPdfDoc
         .getPage(0)
         .getSize();
@@ -2024,6 +2022,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       );
       appendedPages.forEach((page) => finalPdfDoc.addPage(page));
 
+      // Save and upload the final PDF.
       const pdfBytes = await finalPdfDoc.save();
       const pdfKey = `signedDocuments/${documentKey}.pdf`;
       const pdfUpload = await putObject(pdfBytes, pdfKey, "application/pdf");
@@ -2034,14 +2033,20 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       }
       console.log("Final signed PDF URL:", pdfUpload.url);
       const finalDocumentUrl = pdfUpload.url;
-      document.signedDocument = pdfUpload.url;
+      document.signedDocument = finalDocumentUrl;
+
+      // Save the signedDocument URL immediately.
+      await senderUser.save();
+
+      // Update the global Agreement as well.
       const globalAgreement = await Agreement.findOne({ documentKey });
       if (globalAgreement) {
-        globalAgreement.signedDocument = pdfUpload.url;
+        globalAgreement.signedDocument = finalDocumentUrl;
         globalAgreement.status = "signed";
         await globalAgreement.save();
       }
 
+      // Notify sender and recipients (email sending errors are logged but don't break execution).
       try {
         const senderMailBody = CompletedSenderDocument(
           docName,
@@ -2090,7 +2095,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
             senderUser.userName || senderUser.email,
             senderUser.email,
             document.ImageUrls[0] || "",
-            pdfUpload.url
+            finalDocumentUrl
           );
           for (const ccEmail of document.CC) {
             await sendEmail(ccEmail, subject, ccBody);
@@ -2101,6 +2106,7 @@ exports.agreeDocument = asyncHandler(async (req, res, next) => {
       }
     }
 
+    // Final save to ensure all updates are persisted.
     await senderUser.save();
     res.status(200).json({
       message: "Placeholders updated successfully",
