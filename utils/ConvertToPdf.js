@@ -242,13 +242,16 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   drawLineOfText(`Document ID: ${data.documentId || "N/A"}`, {
     lineSpacing: bodySize * 1.5,
   });
-  drawLineOfText(`Document Creation Time: ${data.creationTime || "N/A"}`, {
-    lineSpacing: bodySize * 1.5,
-  });
+  drawLineOfText(
+    `Document Creation Time: ${data.creationTime || "N/A"} (UTC)`,
+    {
+      lineSpacing: bodySize * 1.5,
+    }
+  );
   drawLineOfText(`Document Creation IP: ${data.creationIp || "N/A"}`, {
     lineSpacing: bodySize * 1.5,
   });
-  drawLineOfText(`Completed At: ${data.completedTime || "N/A"}`, {
+  drawLineOfText(`Completed At: ${data.completedTime || "N/A"} (UTC)`, {
     lineSpacing: bodySize * 1.5,
   });
 
@@ -268,7 +271,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   // 5) Created row (if exists)
   if (data.createdRow) {
     drawLineOfText(
-      `Created by ${data.createdRow.senderName} (${data.createdRow.senderEmail}) at ${data.createdRow.time}`,
+      `Created by ${data.createdRow.senderName} (${data.createdRow.senderEmail}) at ${data.createdRow.time} (UTC)`,
       { lineSpacing: bodySize * 1.2 }
     );
     drawLineOfText(`IP - ${data.createdRow.ip}`, {
@@ -283,7 +286,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   if (data.sentRows && data.sentRows.length) {
     for (const row of data.sentRows) {
       drawLineOfText(
-        `Document sent to ${row.recipientName} (${row.recipientEmail}) at ${row.time}`,
+        `Document sent to ${row.recipientName} (${row.recipientEmail}) at ${row.time} (UTC)`,
         { lineSpacing: bodySize * 1.2 }
       );
       drawLineOfText(`IP - ${row.ip}`, {
@@ -299,7 +302,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   if (data.viewedRows && data.viewedRows.length) {
     for (const row of data.viewedRows) {
       drawLineOfText(
-        `Document viewed by ${row.recipientName} (${row.recipientEmail}) at ${row.time}`,
+        `Document viewed by ${row.recipientName} (${row.recipientEmail}) at ${row.time} (UTC)`,
         { lineSpacing: bodySize * 1.2 }
       );
       drawLineOfText(`IP - ${row.ip}`, {
@@ -315,7 +318,7 @@ async function createAuditPdfBuffer(data, pageWidth, pageHeight) {
   if (data.signedRows && data.signedRows.length) {
     for (const row of data.signedRows) {
       drawLineOfText(
-        `Signed by ${row.recipientName} (${row.recipientEmail}) at ${row.time}`,
+        `Signed by ${row.recipientName} (${row.recipientEmail}) at ${row.time} (UTC)`,
         { lineSpacing: bodySize * 1.2 }
       );
       drawLineOfText(`IP - ${row.ip}`, {
