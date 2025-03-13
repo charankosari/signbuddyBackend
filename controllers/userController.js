@@ -349,7 +349,7 @@ exports.userDetails = asyncHandler(async (req, res, next) => {
   const templatesCount = user.templates.length;
 
   // Calculate total documents count (documentsSent + drafts)
-  const totalDocuments = user.documentsSent.length + user.drafts.length;
+  const totalDocuments = user.documentsSent.length;
 
   // Documents in which all recipients have signed
   const completedDocuments = user.documentsSent.filter(
@@ -722,8 +722,7 @@ exports.recentDocuments = asyncHandler(async (req, res, next) => {
         signedDocument,
         placeholders,
       };
-    })
-    .filter((doc) => doc.status !== "draft");
+    });
 
   // Process drafts
   const draftsList = user.drafts
