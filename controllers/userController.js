@@ -530,7 +530,7 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
       return res.status(404).json({ error: "Recipient not found in document" });
     }
 
-    // If already marked viewed, return early
+    // If already marked viewed, return early and do not send the email
     if (recipient.status === "viewed") {
       return res
         .status(200)
@@ -557,15 +557,13 @@ exports.viewedDocument = asyncHandler(async (req, res, next) => {
         globalRecipient.status = "viewed";
         globalRecipient.statusTime = new Date();
         globalRecipient.documentViewedTime = new Date();
-
-        // Optionally, add additional fields (e.g. recipientViewedIp) if you update the schema
       }
       await agreement.save();
     }
 
-    // Optionally, notify the sender via email that the document was viewed
+    // Notify the sender via email that the document was viewed
+    // This section will only be executed if the document was not already viewed.
     const subject = `${document.documentName} has been viewed by ${user.userName}`;
-
     const body = ViewedDocument(
       sender.avatar,
       sender.userName,
